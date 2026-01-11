@@ -53,12 +53,12 @@ async function init() {
  * Initialize Leaflet map
  */
 function initMap() {
-    // Create map centered on Europe
+    // Create map centered on global view
     map = L.map('map', {
-        center: [40, 10],
+        center: [20, 0],
         zoom: 3,
-        minZoom: 3,
-        maxZoom: 4
+        minZoom: 2,
+        maxZoom: 6
     });
 
     // Add OpenStreetMap tiles

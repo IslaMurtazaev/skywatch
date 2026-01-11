@@ -1,111 +1,84 @@
 /**
- * Precipitation Layer - Visualization for precipitation data
+ * Precipitation Layer - Heatmap visualization for precipitation data
  */
 class PrecipLayer {
     constructor(map) {
         this.map = map;
-        this.circles = [];
+        this.heatLayer = null;
         this.visible = true;
     }
 
     /**
-     * Render precipitation for a given timestep
+     * Render precipitation heatmap for a given timestep
      * @param {Array} data - Array of {lat, lon, value} objects
      */
     render(data) {
-        // Clear existing circles
-        this.clear();
+        // Remove existing layer
+        if (this.heatLayer) {
+            this.map.removeLayer(this.heatLayer);
+        }
 
         if (!this.visible || !data || data.length === 0) {
             return;
         }
 
-        // Filter out zero or very small precipitation
-        const significantData = data.filter(point => point.value > 0.1);
+        // Filter out light precipitation (< 2 mm) - only show moderate or heavier
+        const significantData = data.filter(point => point.value >= 2);
 
-        // Create circle markers
-        significantData.forEach(point => {
-            const circle = this.createCircle(point);
-            if (circle) {
-                circle.addTo(this.map);
-                this.circles.push(circle);
-            }
-        });
-    }
-
-    /**
-     * Create a precipitation circle marker
-     * @param {Object} point - Precipitation data point with lat, lon, value
-     * @returns {L.CircleMarker} Leaflet circle marker
-     */
-    createCircle(point) {
-        const { lat, lon, value } = point;
-
-        // Skip if invalid data
-        if (isNaN(value) || value <= 0) {
-            return null;
+        if (significantData.length === 0) {
+            return; // No significant precipitation to display
         }
 
-        // Get color and radius based on precipitation amount
-        const color = this.getPrecipColor(value);
-        const radius = this.getPrecipRadius(value);
-
-        // Create circle marker
-        const circle = L.circleMarker([lat, lon], {
-            radius: radius,
-            fillColor: color,
-            color: color,
-            weight: 1,
-            opacity: 0.6,
-            fillOpacity: 0.4
+        // Prepare heatmap data: [lat, lon, intensity]
+        const heatData = significantData.map(point => {
+            const intensity = this.normalizeValue(point.value);
+            return [point.lat, point.lon, intensity];
         });
 
-        // Add tooltip with precipitation information
-        const category = this.getPrecipCategory(value);
-        circle.bindTooltip(
-            `<strong>Precipitation</strong><br>${value.toFixed(1)} mm<br>${category}`,
-            { permanent: false, direction: 'top' }
-        );
+        // Adjust radius and blur based on zoom level
+        const zoom = this.map.getZoom();
+        const radius = zoom <= 3 ? 20 : zoom <= 4 ? 25 : zoom <= 5 ? 30 : 35;
+        const blur = zoom <= 3 ? 15 : zoom <= 4 ? 20 : zoom <= 5 ? 25 : 30;
 
-        return circle;
+        // Create heatmap with green gradient (light to dark green)
+        this.heatLayer = L.heatLayer(heatData, {
+            radius: radius,
+            blur: blur,
+            maxZoom: 10,
+            max: 1.0,
+            gradient: {
+                0.0: 'rgba(144, 238, 144, 0.8)',    // Moderate (2-5 mm) - Light green
+                0.4: 'rgba(50, 205, 50, 0.85)',     // Heavy (5-10 mm) - Lime green
+                0.7: 'rgba(34, 139, 34, 0.9)',      // Very Heavy (10-20 mm) - Forest green
+                1.0: 'rgba(0, 100, 0, 1.0)'         // Extreme (20+ mm) - Dark green
+            }
+        }).addTo(this.map);
     }
 
     /**
-     * Get color based on precipitation amount
-     * @param {number} value - Precipitation in mm
-     * @returns {string} Color hex code
+     * Normalize precipitation value to 0-1 scale
+     * @param {number} value - Precipitation in mm (6-hourly)
+     * @returns {number} Normalized value (0-1)
      */
-    getPrecipColor(value) {
-        if (value < 0.5) return '#E0F3DB';     // Light
-        if (value < 2) return '#A8DDB5';       // Moderate
-        if (value < 5) return '#43A2CA';       // Heavy
-        if (value < 10) return '#0868AC';      // Very Heavy
-        return '#084081';                       // Extreme
-    }
+    normalizeValue(value) {
+        // Precipitation ranges (6-hourly amounts in mm)
+        // < 2: Light (filtered out)
+        // 2-5: Moderate → 0.0 - 0.4
+        // 5-10: Heavy → 0.4 - 0.7
+        // 10-20: Very Heavy → 0.7 - 1.0
+        // > 20: Extreme → 1.0
 
-    /**
-     * Get circle radius based on precipitation amount
-     * @param {number} value - Precipitation in mm
-     * @returns {number} Radius in pixels
-     */
-    getPrecipRadius(value) {
-        // Scale radius based on amount, but cap it
-        const baseRadius = 8;
-        const scaleFactor = Math.log(value + 1) * 3;
-        return Math.min(20, baseRadius + scaleFactor);
-    }
-
-    /**
-     * Get precipitation category
-     * @param {number} value - Precipitation in mm
-     * @returns {string} Category name
-     */
-    getPrecipCategory(value) {
-        if (value < 0.5) return 'Light';
-        if (value < 2) return 'Moderate';
-        if (value < 5) return 'Heavy';
-        if (value < 10) return 'Very Heavy';
-        return 'Extreme';
+        if (value < 2) {
+            return 0.0;  // Filtered out anyway
+        } else if (value <= 5) {
+            return ((value - 2) / (5 - 2)) * 0.4;  // 0.0 - 0.4
+        } else if (value <= 10) {
+            return 0.4 + ((value - 5) / (10 - 5)) * 0.3;  // 0.4 - 0.7
+        } else if (value <= 20) {
+            return 0.7 + ((value - 10) / (20 - 10)) * 0.3;  // 0.7 - 1.0
+        } else {
+            return 1.0;  // Extreme (20+ mm)
+        }
     }
 
     /**
@@ -120,10 +93,12 @@ class PrecipLayer {
     }
 
     /**
-     * Clear all circles
+     * Clear the layer
      */
     clear() {
-        this.circles.forEach(circle => this.map.removeLayer(circle));
-        this.circles = [];
+        if (this.heatLayer) {
+            this.map.removeLayer(this.heatLayer);
+            this.heatLayer = null;
+        }
     }
 }

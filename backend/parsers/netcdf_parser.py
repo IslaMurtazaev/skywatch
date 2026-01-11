@@ -51,11 +51,16 @@ class NetCDFParser:
         pm25_var = self._detect_variable(['pm2p5', 'pm2.5', 'pm25', 'particulate_matter_2p5um'])
         u_wind_var = self._detect_variable(['u10', 'u10m', '10m_u_component_of_wind'])
         v_wind_var = self._detect_variable(['v10', 'v10m', '10m_v_component_of_wind'])
+        precip_var = self._detect_variable(['tp', 'total_precipitation', 'precipitation'])
 
         if not pm25_var or not u_wind_var or not v_wind_var:
             raise ValueError(f"Could not detect required variables. Available: {list(self.dataset.data_vars)}")
 
         logger.info(f"Detected variables: PM2.5={pm25_var}, U-wind={u_wind_var}, V-wind={v_wind_var}")
+        if precip_var:
+            logger.info(f"Precipitation variable detected: {precip_var}")
+        else:
+            logger.warning("No precipitation variable found in dataset")
 
         # Get coordinate names (must be actual dimensions, not just coordinate variables)
         lat_coord = self._detect_dimension(['latitude', 'lat'])
@@ -71,6 +76,7 @@ class NetCDFParser:
         pm25_data = self.dataset[pm25_var]
         u_wind_data = self.dataset[u_wind_var]
         v_wind_data = self.dataset[v_wind_var]
+        precip_data = self.dataset[precip_var] if precip_var else None
 
         # Handle forecast_reference_time dimension if present (select first value)
         if 'forecast_reference_time' in pm25_data.dims:
@@ -78,6 +84,8 @@ class NetCDFParser:
             pm25_data = pm25_data.isel(forecast_reference_time=0)
             u_wind_data = u_wind_data.isel(forecast_reference_time=0)
             v_wind_data = v_wind_data.isel(forecast_reference_time=0)
+            if precip_data is not None and 'forecast_reference_time' in precip_data.dims:
+                precip_data = precip_data.isel(forecast_reference_time=0)
 
         # Handle level dimension if present (select surface level = 0 or first level)
         if 'level' in pm25_data.dims:
@@ -85,6 +93,8 @@ class NetCDFParser:
             pm25_data = pm25_data.isel(level=0)
             u_wind_data = u_wind_data.isel(level=0)
             v_wind_data = v_wind_data.isel(level=0)
+            if precip_data is not None and 'level' in precip_data.dims:
+                precip_data = precip_data.isel(level=0)
 
         # Apply spatial sampling
         if sample_rate > 1:
@@ -95,6 +105,9 @@ class NetCDFParser:
                                            lon_coord: slice(None, None, sample_rate)})
             v_wind_data = v_wind_data.isel({lat_coord: slice(None, None, sample_rate),
                                            lon_coord: slice(None, None, sample_rate)})
+            if precip_data is not None:
+                precip_data = precip_data.isel({lat_coord: slice(None, None, sample_rate),
+                                               lon_coord: slice(None, None, sample_rate)})
 
         # Get dimensions
         lats = pm25_data[lat_coord].values
@@ -119,6 +132,8 @@ class NetCDFParser:
 
         # Parse timesteps
         timesteps = []
+        prev_precip_cumulative = None  # Store previous cumulative precipitation
+
         for t_idx, time_val in enumerate(times):
             logger.info(f"Processing timestep {t_idx + 1}/{len(times)}: {time_val}")
 
@@ -140,9 +155,32 @@ class NetCDFParser:
             # Meteorological convention: direction FROM which wind is blowing
             wind_direction = (270 - np.degrees(np.arctan2(v_values, u_values))) % 360
 
-            # Create data arrays for PM2.5 and wind
+            # Extract precipitation data for this timestep (if available)
+            # CAMS provides CUMULATIVE precipitation, so we need to calculate differences
+            if precip_data is not None:
+                precip_slice = precip_data.isel({time_coord: t_idx})
+                precip_cumulative = precip_slice.values  # in meters
+
+                # Calculate 6-hourly precipitation (difference from previous timestep)
+                if t_idx == 0 or prev_precip_cumulative is None:
+                    # First timestep: use cumulative value (should be 0 or very small)
+                    precip_values = precip_cumulative * 1000  # Convert to mm
+                else:
+                    # Subsequent timesteps: difference from previous
+                    precip_diff = precip_cumulative - prev_precip_cumulative
+                    precip_values = precip_diff * 1000  # Convert to mm
+                    # Ensure no negative values due to floating point errors
+                    precip_values = np.maximum(precip_values, 0)
+
+                # Store current cumulative for next iteration
+                prev_precip_cumulative = precip_cumulative.copy()
+            else:
+                precip_values = None
+
+            # Create data arrays for PM2.5, wind, and precipitation
             pm25_list = []
             wind_list = []
+            precip_list = []
 
             for i, lat in enumerate(lats):
                 for j, lon in enumerate(lons):
@@ -170,6 +208,16 @@ class NetCDFParser:
                             'direction': direction
                         })
 
+                    # Add precipitation data
+                    if precip_values is not None:
+                        precip_val = float(precip_values[i, j])
+                        if not np.isnan(precip_val) and not np.isinf(precip_val) and precip_val > 0:
+                            precip_list.append({
+                                'lat': float(lat),
+                                'lon': float(lon),
+                                'value': precip_val
+                            })
+
             # Calculate statistics
             valid_pm25 = [p['value'] for p in pm25_list]
             pm25_stats = {
@@ -186,7 +234,19 @@ class NetCDFParser:
                 'mean_speed': float(np.mean(valid_wind_speeds)) if valid_wind_speeds else 0
             }
 
-            timesteps.append({
+            # Calculate precipitation statistics
+            if precip_list:
+                valid_precip = [p['value'] for p in precip_list]
+                precip_stats = {
+                    'min': float(np.min(valid_precip)),
+                    'max': float(np.max(valid_precip)),
+                    'mean': float(np.mean(valid_precip)),
+                    'total': float(np.sum(valid_precip))
+                }
+            else:
+                precip_stats = {'min': 0, 'max': 0, 'mean': 0, 'total': 0}
+
+            timestep_data = {
                 'index': t_idx,
                 'timestamp': str(np.datetime64(time_val)),
                 'pm25': {
@@ -201,10 +261,23 @@ class NetCDFParser:
                     'data': wind_list,
                     'statistics': wind_stats
                 }
-            })
+            }
+
+            # Add precipitation data if available
+            if precip_values is not None:
+                timestep_data['precipitation'] = {
+                    'unit': 'mm (6-hourly)',
+                    'data_points': len(precip_list),
+                    'data': precip_list,
+                    'statistics': precip_stats
+                }
+
+            timesteps.append(timestep_data)
 
             logger.info(f"  PM2.5: {len(pm25_list)} points, range: {pm25_stats['min']:.2f}-{pm25_stats['max']:.2f} μg/m³")
             logger.info(f"  Wind: {len(wind_list)} points, speed range: {wind_stats['min_speed']:.2f}-{wind_stats['max_speed']:.2f} m/s")
+            if precip_values is not None:
+                logger.info(f"  Precipitation (6-hourly): {len(precip_list)} points, range: {precip_stats['min']:.2f}-{precip_stats['max']:.2f} mm")
 
         result = {
             'metadata': {

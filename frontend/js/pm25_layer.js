@@ -35,11 +35,15 @@ class PM25Layer {
             return [point.lat, point.lon, intensity];
         });
 
+        // Adjust radius and blur based on zoom level for better appearance
+        const zoom = this.map.getZoom();
+        const radius = zoom <= 3 ? 20 : zoom <= 4 ? 25 : zoom <= 5 ? 30 : 35;
+        const blur = zoom <= 3 ? 15 : zoom <= 4 ? 20 : zoom <= 5 ? 25 : 30;
+
         // Create heatmap with grayscale gradient (darker = worse pollution)
-        // More visible with higher opacity
         this.heatLayer = L.heatLayer(heatData, {
-            radius: 25,
-            blur: 20,
+            radius: radius,
+            blur: blur,
             maxZoom: 10,
             max: 1.0,
             gradient: {
