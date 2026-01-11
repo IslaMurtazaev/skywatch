@@ -1,288 +1,239 @@
-# Copernicus Air Quality Data Fetcher
+# SkyWatch - Air Quality & Weather Forecast Visualization
 
-A Python application to fetch and parse PM2.5 air quality forecast data from the [Copernicus Atmosphere Monitoring Service (CAMS)](https://atmosphere.copernicus.eu/) and convert it to JSON format for easy consumption.
+An interactive web application that visualizes 7-day forecasts of air quality (PM2.5), wind patterns, and precipitation on an interactive Leaflet map.
+
+![SkyWatch Screenshot](https://via.placeholder.com/800x400?text=SkyWatch+Visualization)
 
 ## Features
 
-- ✅ Fetch global PM2.5 forecasts from CAMS Global Atmospheric Composition Forecasts
-- ✅ Download data in NetCDF format via the official Copernicus API
-- ✅ Parse NetCDF files and convert to structured JSON
-- ✅ Support for spatial filtering (bounding box)
-- ✅ Configurable forecast lead times (0-120 hours)
-- ✅ Data sampling to reduce output file size
-- ✅ Comprehensive error handling and logging
-- ✅ Command-line interface with flexible options
+- **PM2.5 Air Quality Heatmap** - Color-coded EPA AQI standard visualization
+- **Wind Arrows** - Direction and speed visualization with Beaufort scale colors
+- **Precipitation** - Intensity-based circle markers showing rainfall/snowfall
+- **Time Controls** - Interactive slider with play/pause animation
+- **7-Day Forecast** - Hourly or 6-hourly timesteps up to 168 hours
+- **Interactive Map** - Pan, zoom, and click for detailed information
+- **Layer Toggles** - Show/hide individual data layers
+- **Real-time Statistics** - Min/max/avg values for current timestep
 
-## Available Datasets
+## Data Sources
 
-The application currently focuses on **CAMS Global Forecasts** but can be extended to support:
+- **CAMS Global Forecasts** (Copernicus) - PM2.5 and wind data
+- **ECMWF IFS** (via Open-Meteo) - Precipitation forecasts
 
-| Dataset | Coverage | Resolution | Variables |
-|---------|----------|------------|-----------|
-| **CAMS Global Forecasts** ⭐ | Global | ~40km | PM2.5, PM10, O3, NO2, CO, SO2, aerosols |
-| CAMS European Forecasts | Europe | ~10km | Same + dust |
-| CAMS Global Reanalysis | Global | ~80km | Historical data since 2003 |
-| CAMS European Reanalysis | Europe | ~10km | Historical validated data |
+## Quick Start
 
-## Prerequisites
+### Prerequisites
 
 - Python 3.9 or higher
-- Active internet connection
-- Copernicus ADS account and API key
+- Copernicus ADS API key (already configured in `~/.cdsapirc`)
+- Internet connection
 
-## Installation
+### Installation
 
-### 1. Clone or download this repository
-
-```bash
-cd skywatch3
-```
-
-### 2. Install Python dependencies
-
+1. **Install Python dependencies:**
 ```bash
 pip install -r requirements.txt
 ```
 
-**Note**: Installing `cfgrib` requires the ECMWF eccodes library. On macOS:
-
+2. **Install system dependency (eccodes) for GRIB support:**
 ```bash
+# macOS
 brew install eccodes
-```
 
-On Linux (Ubuntu/Debian):
-
-```bash
+# Ubuntu/Debian
 sudo apt-get install libeccodes-dev
 ```
 
-### 3. Configure API credentials
+### Usage
 
-You need to register for a free account on the [Copernicus Atmosphere Data Store](https://ads.atmosphere.copernicus.eu/).
+#### Step 1: Fetch Forecast Data
 
-After registration:
-
-1. Log in to your account
-2. Go to your profile page to find your API key
-3. Create a file named `.cdsapirc` in your home directory (`~/.cdsapirc`) with the following content:
-
-```yaml
-url: https://ads.atmosphere.copernicus.eu/api
-key: YOUR-API-KEY-HERE
-```
-
-Replace `YOUR-API-KEY-HERE` with your actual API key.
-
-**Important**: Make sure the file has the correct permissions:
-
+Fetch 7-day forecast for Europe (default):
 ```bash
-chmod 600 ~/.cdsapirc
+python backend/main.py
 ```
 
-## Usage
-
-### Basic Usage
-
-Fetch the latest PM2.5 forecast (yesterday's data, which is typically the most recent available):
-
+Custom region and options:
 ```bash
-python main.py
+# North America with 5-day forecast
+python backend/main.py --region north_america --forecast-days 5
+
+# Custom bounding box (Central Europe)
+python backend/main.py --bbox 55,-5,45,20 --forecast-days 7
+
+# Higher sampling for faster processing
+python backend/main.py --region europe --sample-rate 3 --forecast-days 3
 ```
 
-This will:
-- Download PM2.5 forecast data to `data/` directory
-- Parse it and save JSON to `output/` directory
-- Include forecasts for 0, 24, 48, 72, 96, and 120 hours
+**Available options:**
+- `--region` - Predefined regions: `europe`, `north_america`, `asia`, `global`
+- `--bbox N,W,S,E` - Custom bounding box (overrides --region)
+- `--forecast-days 1-7` - Number of forecast days (default: 7)
+- `--sample-rate N` - Spatial sampling (1=no sampling, 2=every 2nd point)
+- `--output PATH` - Output JSON file path
+- `--skip-fetch` - Skip fetching, use existing data files
+- `--verbose` - Enable detailed logging
 
-### Fetch Data for a Specific Date
+#### Step 2: Open Visualization
 
+**Option A: Open directly in browser (file:// protocol)**
 ```bash
-python main.py --date 2026-01-10
+# macOS
+open frontend/index.html
+
+# Linux
+xdg-open frontend/index.html
+
+# Or drag the file to your browser
 ```
 
-Or use shortcuts:
-
+**Option B: Start a local web server (recommended)**
 ```bash
-python main.py --date yesterday
-python main.py --date today
+python -m http.server 8000
+```
+Then navigate to: http://localhost:8000/frontend/
+
+## Project Structure
+
+```
+skywatch3/
+├── backend/
+│   ├── fetchers/
+│   │   ├── cams_fetcher.py      # CAMS API client (PM2.5 + wind)
+│   │   └── ecmwf_fetcher.py     # ECMWF precipitation fetcher
+│   ├── parsers/
+│   │   ├── netcdf_parser.py     # NetCDF parser for CAMS data
+│   │   └── unified_parser.py    # Combines all data sources
+│   └── main.py                   # CLI orchestrator
+├── frontend/
+│   ├── index.html               # Main HTML page
+│   ├── css/
+│   │   └── styles.css           # Application styles
+│   └── js/
+│       ├── map.js               # Main map application
+│       ├── pm25_layer.js        # PM2.5 heatmap layer
+│       ├── wind_layer.js        # Wind arrow layer
+│       ├── precip_layer.js      # Precipitation layer
+│       └── controls.js          # Time controls
+├── data/                        # Downloaded NetCDF/GRIB files
+├── output/                      # Generated JSON files
+└── requirements.txt             # Python dependencies
 ```
 
-### Custom Forecast Lead Times
+## How It Works
 
-Specify which forecast hours to include (0-120 hours):
+### Data Pipeline
 
-```bash
-python main.py --lead-times 0,6,12,24,48
+```
+1. Fetch Phase:
+   CAMS API → data/cams_forecast.nc (PM2.5, U-wind, V-wind)
+   ECMWF API → data/ecmwf_precipitation.json (Precipitation)
+
+2. Parse Phase:
+   NetCDF → JSON (PM2.5 + wind with speed/direction calculation)
+   Align timestamps between CAMS and ECMWF data
+
+3. Unify Phase:
+   Combined JSON → output/forecast_data.json
+
+4. Visualization:
+   Leaflet map renders all three data layers
 ```
 
-### Regional Data (Bounding Box)
+### Wind Calculation
 
-Fetch data for a specific region using a bounding box (North, West, South, East):
-
-```bash
-# Europe
-python main.py --bbox 70,-10,35,40
-
-# North America
-python main.py --bbox 60,-130,25,-60
-
-# Asia
-python main.py --bbox 50,60,10,150
-```
-
-### Reduce Output Size
-
-For large datasets, you can sample the data spatially and limit the number of points:
-
-```bash
-# Sample every 2nd grid point and limit to 10,000 points per timestep
-python main.py --sample-rate 2 --max-points 10000
-
-# More aggressive sampling (every 4th point)
-python main.py --sample-rate 4 --max-points 5000
-```
-
-### Custom Output Name
-
-```bash
-python main.py --output my_custom_name
-```
-
-This will create `data/my_custom_name.nc` and `output/my_custom_name.json`.
-
-### Complete Example
-
-Fetch PM2.5 data for Europe on January 9, 2026, with 6 forecast timesteps, sampled to reduce size:
-
-```bash
-python main.py \
-  --date 2026-01-09 \
-  --lead-times 0,24,48,72,96,120 \
-  --bbox 60,-20,30,50 \
-  --sample-rate 2 \
-  --max-points 10000 \
-  --output europe_pm25
-```
-
-### Verbose Output
-
-Enable detailed logging:
-
-```bash
-python main.py --verbose
-```
-
-## Output Format
-
-### JSON Structure
-
-The parsed JSON file has the following structure:
-
-```json
-{
-  "metadata": {
-    "source": "CAMS Global Atmospheric Composition Forecasts",
-    "variable": "pm2p5",
-    "long_name": "Particulate matter d < 2.5 µm",
-    "unit": "μg/m³",
-    "spatial_resolution": "0.40°",
-    "time_steps": 6,
-    "generated_at": "2026-01-11T10:30:00"
-  },
-  "forecasts": [
-    {
-      "timestep_index": 0,
-      "timestamp": "2026-01-10T00:00:00",
-      "data_points": 8640,
-      "data": [
-        {"lat": 52.5, "lon": 13.4, "value": 15.3},
-        {"lat": 52.5, "lon": 13.8, "value": 14.7},
-        ...
-      ]
-    },
-    ...
-  ],
-  "summary": {
-    "total_data_points": 51840,
-    "min_value": 0.5,
-    "max_value": 125.3,
-    "mean_value": 12.4,
-    "median_value": 10.2,
-    "std_dev": 8.7
-  }
-}
-```
-
-### Files Created
-
-- `data/pm25_forecast_YYYY-MM-DD.nc` - Raw NetCDF file from Copernicus
-- `output/pm25_forecast_YYYY-MM-DD.json` - Parsed JSON file
-- `air_quality_fetcher.log` - Application log file
-
-## Python API Usage
-
-You can also use the modules programmatically:
-
+Wind speed and direction are calculated from U/V components:
 ```python
-from fetch_data import CopernicusDataFetcher
-from parse_data import AirQualityDataParser
-
-# Fetch data
-fetcher = CopernicusDataFetcher()
-netcdf_path = fetcher.fetch_pm25_forecast(
-    date='2026-01-10',
-    lead_times=['0', '24', '48'],
-    bbox=[60, -20, 30, 50]  # Europe
-)
-
-# Parse data
-parser = AirQualityDataParser(netcdf_path)
-result = parser.parse_pm25_to_json(
-    output_path='output/my_data.json',
-    sample_rate=2
-)
-parser.close()
-
-print(f"Parsed {len(result['forecasts'])} timesteps")
+speed = √(u² + v²)
+direction = (270 - arctan2(v, u)) % 360  # Meteorological convention
 ```
 
-### Fetch Multiple Pollutants
+### PM2.5 Unit Conversion
 
+CAMS provides PM2.5 in kg/m³, converted to μg/m³:
 ```python
-from fetch_data import CopernicusDataFetcher
-
-fetcher = CopernicusDataFetcher()
-netcdf_path = fetcher.fetch_multiple_pollutants(
-    date='2026-01-10',
-    variables=[
-        'particulate_matter_2.5um',
-        'particulate_matter_10um',
-        'nitrogen_dioxide',
-        'ozone'
-    ],
-    output_path='data/multi_pollutant.nc'
-)
+pm25_μg = pm25_kg × 1e9
 ```
+
+## Keyboard Shortcuts
+
+- **Space** - Play/Pause animation
+- **Left Arrow** - Previous timestep
+- **Right Arrow** - Next timestep
+
+## Configuration
+
+### Predefined Regions
+
+| Region | Bounding Box [N, W, S, E] | Coverage |
+|--------|---------------------------|----------|
+| europe | [70, -10, 35, 40] | Full Europe |
+| north_america | [60, -130, 25, -60] | USA + Canada |
+| asia | [50, 60, 10, 150] | East Asia |
+| global | None | Worldwide |
+
+### Performance Tips
+
+For large regions or slower computers:
+- Increase `--sample-rate` (2, 3, or 4)
+- Reduce `--forecast-days` (3 or 5 instead of 7)
+- Use smaller bounding boxes
+- Disable layers you don't need using checkboxes
+
+### File Sizes
+
+Typical output sizes for 7-day forecast:
+- Europe (sampled): 5-10 MB
+- North America (sampled): 8-12 MB
+- Global (sampled): 30-50 MB
 
 ## Troubleshooting
 
-### Issue: API request fails
+### "Failed to load forecast data"
 
-**Problem**: `Exception: Authentication failed`
+**Cause**: JSON file not found or incorrect path
 
-**Solution**: Check that your `.cdsapirc` file is in your home directory with the correct format and permissions:
+**Solution**:
+1. Verify file exists: `ls -lh output/forecast_data.json`
+2. Run data fetch: `python backend/main.py`
+3. Use local server instead of file:// protocol
 
-```bash
-cat ~/.cdsapirc
-chmod 600 ~/.cdsapirc
-```
+### "API authentication failed"
 
-### Issue: eccodes library not found
+**Cause**: Invalid or missing Copernicus API key
 
-**Problem**: `ImportError: libeccodes.so: cannot open shared object file`
+**Solution**:
+1. Check API key file: `cat ~/.cdsapirc`
+2. Verify format:
+   ```yaml
+   url: https://ads.atmosphere.copernicus.eu/api
+   key: YOUR-API-KEY
+   ```
+3. Test connection: `python -c "import cdsapi; cdsapi.Client()"`
 
-**Solution**: Install the eccodes library:
+### "Request takes too long"
 
+**Cause**: Copernicus uses a queue system (1-5 minute wait is normal)
+
+**Solution**:
+- Be patient - requests are queued on the server
+- Check status: https://ads.atmosphere.copernicus.eu/requests
+- Use smaller regions or fewer days
+
+### "Browser shows blank map"
+
+**Cause**: Path issues or JavaScript errors
+
+**Solution**:
+1. Open browser console (F12) and check for errors
+2. Use local server: `python -m http.server 8000`
+3. Verify JSON file exists in `output/` directory
+
+### "eccodes library not found"
+
+**Cause**: Missing system dependency for GRIB support
+
+**Solution**:
 ```bash
 # macOS
 brew install eccodes
@@ -290,65 +241,96 @@ brew install eccodes
 # Ubuntu/Debian
 sudo apt-get install libeccodes-dev
 
-# Then reinstall cfgrib
+# Then reinstall Python package
 pip install --upgrade cfgrib
 ```
 
-### Issue: Request queued for a long time
+## Technical Details
 
-**Problem**: Download is very slow or stuck
+### Libraries Used
 
-**Solution**: The Copernicus ADS uses a queue system. Popular data requests may take several minutes. You can:
-- Check the queue status at [ADS Portal](https://ads.atmosphere.copernicus.eu/requests)
-- Reduce the spatial extent using `--bbox`
-- Fetch fewer lead times using `--lead-times`
+**Backend:**
+- `cdsapi` - Copernicus CDS API client
+- `xarray` - NetCDF data handling
+- `netCDF4` - NetCDF format support
+- `cfgrib` - GRIB format support
+- `numpy` - Numerical operations
+- `pandas` - Data manipulation
+- `requests` - HTTP API calls
 
-### Issue: JSON file is too large
+**Frontend:**
+- `Leaflet.js` - Interactive mapping
+- `Leaflet.heat` - Heatmap visualization
+- Vanilla JavaScript (ES6+) - No build tools required
 
-**Problem**: Output JSON file is hundreds of megabytes
+### Data Format
 
-**Solution**: Use sampling options:
-
-```bash
-python main.py --sample-rate 4 --max-points 5000
+The unified JSON schema:
+```json
+{
+  "metadata": {
+    "forecast_reference_time": "ISO-8601",
+    "num_timesteps": 29,
+    "forecast_hours": [0, 6, 12, ..., 168]
+  },
+  "timesteps": [
+    {
+      "index": 0,
+      "forecast_hour": 0,
+      "valid_time": "ISO-8601",
+      "pm25": {
+        "data": [{"lat": 50.0, "lon": 5.0, "value": 12.5}, ...],
+        "statistics": {"min": 5.2, "max": 45.3, "mean": 18.7}
+      },
+      "wind": {
+        "data": [{"lat": 50.0, "lon": 5.0, "speed": 4.1, "direction": 210}, ...],
+        "statistics": {"min_speed": 0.5, "max_speed": 18.3}
+      },
+      "precipitation": {
+        "data": [{"lat": 50.0, "lon": 5.0, "value": 2.3}, ...],
+        "statistics": {"min": 0.0, "max": 12.5, "total": 450.2}
+      }
+    }
+  ]
+}
 ```
 
-### Issue: Missing data or NaN values
+## Limitations
 
-**Problem**: Some grid points have no data
+- CAMS data has 1-day lag (yesterday's forecast is the latest available)
+- Global forecasts are large and may be slow to render
+- Precipitation data limited to 16-day forecast (Open-Meteo limitation)
+- Wind arrows are sampled to max 500 for performance
 
-**Solution**: This is normal for certain pollutants or regions. The parser automatically filters out NaN values. Check the data coverage in the metadata.
+## Future Enhancements
 
-## Data Notes
+Possible improvements:
+- Add more pollutants (PM10, NO2, O3, SO2)
+- Support for historical data comparison
+- Export timestep as image
+- Mobile-optimized interface
+- Real-time data updates
+- Custom color scales
+- Measurement unit selection
 
-- **Data Availability**: CAMS forecast data is typically available with a 1-day lag. Use `--date yesterday` or leave it as default.
-- **Temporal Coverage**: Each forecast provides 5-day predictions (120 hours) from the base time.
-- **Spatial Resolution**: Global forecasts are at ~0.4° × 0.4° (~40km) resolution.
-- **Units**: PM2.5 values are automatically converted from kg/m³ to μg/m³ for readability.
-- **File Sizes**: Full global NetCDF files can be 100-500 MB. Use bounding boxes and sampling to reduce size.
+## Credits
 
-## Resources
-
-- [Copernicus ADS Portal](https://ads.atmosphere.copernicus.eu/)
-- [CAMS Global Forecasts Dataset](https://ads.atmosphere.copernicus.eu/datasets/cams-global-atmospheric-composition-forecasts)
-- [CDS API Documentation](https://ads.atmosphere.copernicus.eu/how-to-api)
-- [CAMS Documentation](https://atmosphere.copernicus.eu/documentation)
+- **Data**: Copernicus Atmosphere Monitoring Service (CAMS) and ECMWF
+- **Mapping**: Leaflet.js and OpenStreetMap
+- **API**: Open-Meteo for ECMWF precipitation access
 
 ## License
 
 This project uses data from the Copernicus Atmosphere Monitoring Service. Please review the [Copernicus License](https://atmosphere.copernicus.eu/data-licence) for data usage terms.
 
-## Contributing
-
-Feel free to extend this application to support:
-- Additional pollutants (PM10, O3, NO2, SO2, CO)
-- European regional forecasts (higher resolution)
-- Historical reanalysis data
-- Visualization capabilities
-- API server for real-time queries
-
 ## Support
 
-For issues with the application, check the log file `air_quality_fetcher.log`.
+For issues:
+1. Check the log file: `skywatch.log`
+2. Enable verbose mode: `python backend/main.py --verbose`
+3. Review browser console (F12) for JavaScript errors
+4. Verify your API credentials
 
-For Copernicus API issues, visit the [ECMWF Forum](https://forum.ecmwf.int/).
+---
+
+**Built with ❤️ for air quality and weather enthusiasts**

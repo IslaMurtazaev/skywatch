@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyWatch - Air Quality & Weather Forecast</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>🌍 SkyWatch</h1>
+        <p>Air Quality & Weather Forecast Visualization</p>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="controls-panel">
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="pm25-toggle" checked> PM2.5
+            </label>
+            <label>
+                <input type="checkbox" id="wind-toggle" checked> Wind
+            </label>
+            <label>
+                <input type="checkbox" id="precip-toggle" checked> Precipitation
+            </label>
+        </div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Time Control Panel -->
+    <div class="time-panel">
+        <div class="time-controls">
+            <button id="play-btn" title="Play/Pause">▶</button>
+            <button id="prev-btn" title="Previous">◄</button>
+            <button id="next-btn" title="Next">►</button>
+            <span id="time-display">Loading...</span>
+        </div>
+        <div class="slider-container">
+            <input type="range" id="time-slider" min="0" max="0" value="0" step="1">
+            <div id="slider-labels"></div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+        <h3>Legend</h3>
+        <div class="legend-section">
+            <h4>PM2.5 (μg/m³)</h4>
+            <div class="legend-item"><span class="color-box" style="background: #00E400;"></span> 0-12 Good</div>
+            <div class="legend-item"><span class="color-box" style="background: #FFFF00;"></span> 12-35 Moderate</div>
+            <div class="legend-item"><span class="color-box" style="background: #FF7E00;"></span> 35-55 Unhealthy (Sensitive)</div>
+            <div class="legend-item"><span class="color-box" style="background: #FF0000;"></span> 55-150 Unhealthy</div>
+            <div class="legend-item"><span class="color-box" style="background: #8F3F97;"></span> 150-250 Very Unhealthy</div>
+            <div class="legend-item"><span class="color-box" style="background: #7E0023;"></span> 250+ Hazardous</div>
+        </div>
+        <div class="legend-section">
+            <h4>Wind Speed (m/s)</h4>
+            <div class="legend-item"><span class="color-box" style="background: #4DAF4A;"></span> 0-2 Light</div>
+            <div class="legend-item"><span class="color-box" style="background: #377EB8;"></span> 2-6 Moderate</div>
+            <div class="legend-item"><span class="color-box" style="background: #FF7F00;"></span> 6-11 Fresh</div>
+            <div class="legend-item"><span class="color-box" style="background: #E41A1C;"></span> 11-17 Strong</div>
+            <div class="legend-item"><span class="color-box" style="background: #984EA3;"></span> 17+ Storm</div>
+        </div>
+        <div class="legend-section">
+            <h4>Precipitation (mm)</h4>
+            <div class="legend-item"><span class="color-box" style="background: #E0F3DB;"></span> 0-0.5 Light</div>
+            <div class="legend-item"><span class="color-box" style="background: #A8DDB5;"></span> 0.5-2 Moderate</div>
+            <div class="legend-item"><span class="color-box" style="background: #43A2CA;"></span> 2-5 Heavy</div>
+            <div class="legend-item"><span class="color-box" style="background: #0868AC;"></span> 5-10 Very Heavy</div>
+            <div class="legend-item"><span class="color-box" style="background: #084081;"></span> 10+ Extreme</div>
+        </div>
+    </div>
+
+    <!-- Statistics Panel -->
+    <div class="stats-panel">
+        <h3>Current Statistics</h3>
+        <div id="stats-content">
+            <p>Loading data...</p>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Loading forecast data...</p>
+    </div>
+
+    <!-- Error Message -->
+    <div id="error-message" style="display: none;">
+        <p></p>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet Plugins -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+    <!-- Custom JS -->
+    <script src="js/pm25_layer.js"></script>
+    <script src="js/wind_layer.js"></script>
+    <script src="js/precip_layer.js"></script>
+    <script src="js/controls.js"></script>
+    <script src="js/map.js"></script>
+</body>
+</html>
