@@ -55,10 +55,10 @@ async function init() {
 function initMap() {
     // Create map centered on Europe
     map = L.map('map', {
-        center: [50, 10],
-        zoom: 5,
+        center: [40, 10],
+        zoom: 3,
         minZoom: 3,
-        maxZoom: 10
+        maxZoom: 4
     });
 
     // Add OpenStreetMap tiles
