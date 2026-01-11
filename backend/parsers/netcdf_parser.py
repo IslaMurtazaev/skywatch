@@ -129,13 +129,20 @@ class NetCDFParser:
 
         logger.info(f"Data shape: {len(times)} timesteps × {len(lats)} lats × {len(lons)} lons")
         logger.info(f"Total data points per timestep: {len(lats) * len(lons)}")
+        logger.info(f"Skipping first timestep (initialization time) - will output {len(times) - 1} timesteps")
 
-        # Parse timesteps
+        # Parse timesteps (skip first timestep as it's initialization time with no precipitation)
         timesteps = []
         prev_precip_cumulative = None  # Store previous cumulative precipitation
 
         for t_idx, time_val in enumerate(times):
-            logger.info(f"Processing timestep {t_idx + 1}/{len(times)}: {time_val}")
+            if t_idx == 0:
+                # Skip initialization time, but store cumulative for next timestep
+                if precip_data is not None:
+                    precip_slice = precip_data.isel({time_coord: 0})
+                    prev_precip_cumulative = precip_slice.values
+                continue
+            logger.info(f"Processing timestep {t_idx}/{len(times) - 1} (forecast hour {t_idx * 6}): {time_val}")
 
             # Extract PM2.5 data for this timestep
             pm25_slice = pm25_data.isel({time_coord: t_idx})
@@ -162,15 +169,11 @@ class NetCDFParser:
                 precip_cumulative = precip_slice.values  # in meters
 
                 # Calculate 6-hourly precipitation (difference from previous timestep)
-                if t_idx == 0 or prev_precip_cumulative is None:
-                    # First timestep: use cumulative value (should be 0 or very small)
-                    precip_values = precip_cumulative * 1000  # Convert to mm
-                else:
-                    # Subsequent timesteps: difference from previous
-                    precip_diff = precip_cumulative - prev_precip_cumulative
-                    precip_values = precip_diff * 1000  # Convert to mm
-                    # Ensure no negative values due to floating point errors
-                    precip_values = np.maximum(precip_values, 0)
+                # prev_precip_cumulative was set from the skipped initialization timestep
+                precip_diff = precip_cumulative - prev_precip_cumulative
+                precip_values = precip_diff * 1000  # Convert to mm
+                # Ensure no negative values due to floating point errors
+                precip_values = np.maximum(precip_values, 0)
 
                 # Store current cumulative for next iteration
                 prev_precip_cumulative = precip_cumulative.copy()
@@ -247,10 +250,10 @@ class NetCDFParser:
                 precip_stats = {'min': 0, 'max': 0, 'mean': 0, 'total': 0}
 
             timestep_data = {
-                'index': t_idx,
+                'index': len(timesteps),  # Sequential index in output array
                 'timestamp': str(np.datetime64(time_val)),
                 'valid_time': str(np.datetime64(time_val)),  # For frontend compatibility
-                'forecast_hour': t_idx * 6,  # 6-hourly timesteps
+                'forecast_hour': t_idx * 6,  # 6-hourly timesteps (actual forecast hour)
                 'pm25': {
                     'unit': 'μg/m³',
                     'data_points': len(pm25_list),
