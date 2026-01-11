@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PM2.5 Air Quality Visualization</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        #container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        #controls {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        label {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        select, button {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        select {
+            background: white;
+        }
+        
+        select:hover {
+            border-color: #667eea;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+        
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        #map {
+            flex: 1;
+            background: #e0e0e0;
+        }
+        
+        #stats {
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .stat-unit {
+            font-size: 14px;
+            color: #999;
+            margin-left: 3px;
+        }
+        
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            position: absolute;
+            bottom: 40px;
+            right: 20px;
+            z-index: 1000;
+            min-width: 200px;
+        }
+        
+        .legend h4 {
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+        
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            margin-right: 10px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #667eea;
+            z-index: 2000;
+            background: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* Leaflet popup customization */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+        }
+        
+        .popup-content {
+            padding: 5px;
+        }
+        
+        .popup-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .popup-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .popup-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <header>
+            <h1>🌍 PM2.5 Air Quality Visualization</h1>
+            <div class="subtitle">Copernicus CAMS Global Atmospheric Composition Forecasts</div>
+        </header>
+        
+        <div id="controls">
+            <div class="control-group">
+                <label for="timestep">Forecast Time:</label>
+                <select id="timestep">
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <button id="refresh-btn">🔄 Refresh Map</button>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="show-labels" checked> Show Values
+                </label>
+            </div>
+        </div>
+        
+        <div id="map"></div>
+        
+        <div id="stats">
+            <div class="stat">
+                <div class="stat-label">Data Points</div>
+                <div class="stat-value"><span id="stat-points">-</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Min PM2.5</div>
+                <div class="stat-value"><span id="stat-min">-</span><span class="stat-unit">µg/m³</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Average PM2.5</div>
+                <div class="stat-value"><span id="stat-avg">-</span><span class="stat-unit">µg/m³</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Max PM2.5</div>
+                <div class="stat-value"><span id="stat-max">-</span><span class="stat-unit">µg/m³</span></div>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <h4>PM2.5 Levels (µg/m³)</h4>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #00E400;"></div>
+                <span>0-12: Good</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #FFFF00;"></div>
+                <span>12-35: Moderate</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #FF7E00;"></div>
+                <span>35-55: Unhealthy (Sensitive)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #FF0000;"></div>
+                <span>55-150: Unhealthy</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #8F3F97;"></div>
+                <span>150+: Very Unhealthy</span>
+            </div>
+        </div>
+        
+        <div id="loading" class="loading">Loading data...</div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Global variables
+        let map;
+        let data;
+        let currentTimestep = 0;
+        let markers = [];
+        
+        // Color scale for PM2.5 values (US EPA Air Quality Index)
+        function getColor(value) {
+            if (value <= 12) return '#00E400';        // Good
+            else if (value <= 35) return '#FFFF00';   // Moderate
+            else if (value <= 55) return '#FF7E00';   // Unhealthy for Sensitive Groups
+            else if (value <= 150) return '#FF0000';  // Unhealthy
+            else if (value <= 250) return '#8F3F97';  // Very Unhealthy
+            else return '#7E0023';                     // Hazardous
+        }
+        
+        function getAQICategory(value) {
+            if (value <= 12) return 'Good';
+            else if (value <= 35) return 'Moderate';
+            else if (value <= 55) return 'Unhealthy for Sensitive Groups';
+            else if (value <= 150) return 'Unhealthy';
+            else if (value <= 250) return 'Very Unhealthy';
+            else return 'Hazardous';
+        }
+        
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([50, 5], 6);
+            
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+        }
+        
+        // Load and parse JSON data
+        async function loadData() {
+            try {
+                const response = await fetch('../output/test_parsed.json');
+                data = await response.json();
+                
+                // Populate timestep selector
+                const timestepSelect = document.getElementById('timestep');
+                data.forecasts.forEach((forecast, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    const timestamp = new Date(forecast.timestamp);
+                    option.textContent = `${timestamp.toLocaleDateString()} ${timestamp.toLocaleTimeString()} (${forecast.forecast_period})`;
+                    timestepSelect.appendChild(option);
+                });
+                
+                // Initial render
+                renderData(0);
+                
+                document.getElementById('loading').classList.add('hidden');
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('loading').textContent = 'Error loading data. Make sure test_parsed.json exists in the output folder.';
+            }
+        }
+        
+        // Render data on map
+        function renderData(timestepIndex) {
+            // Clear existing markers
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            const forecast = data.forecasts[timestepIndex];
+            const showLabels = document.getElementById('show-labels').checked;
+            
+            // Add markers for each data point
+            forecast.data.forEach(point => {
+                const color = getColor(point.value);
+                
+                // Create circle marker
+                const circle = L.circleMarker([point.lat, point.lon], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+                
+                // Add popup
+                const popupContent = `
+                    <div class="popup-content">
+                        <div class="popup-title">PM2.5 Concentration</div>
+                        <div class="popup-value">${point.value.toFixed(2)} µg/m³</div>
+                        <div class="popup-details">
+                            <strong>Location:</strong> ${point.lat.toFixed(2)}°N, ${point.lon.toFixed(2)}°E<br>
+                            <strong>Category:</strong> ${getAQICategory(point.value)}
+                        </div>
+                    </div>
+                `;
+                circle.bindPopup(popupContent);
+                
+                // Add tooltip if labels are enabled
+                if (showLabels) {
+                    circle.bindTooltip(point.value.toFixed(1), {
+                        permanent: true,
+                        direction: 'center',
+                        className: 'marker-label',
+                        offset: [0, 0]
+                    });
+                }
+                
+                circle.addTo(map);
+                markers.push(circle);
+            });
+            
+            // Update statistics
+            updateStats(forecast);
+            
+            // Adjust map view to show all markers
+            if (forecast.data.length > 0) {
+                const bounds = L.latLngBounds(
+                    forecast.data.map(p => [p.lat, p.lon])
+                );
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+        
+        // Update statistics panel
+        function updateStats(forecast) {
+            const values = forecast.data.map(p => p.value);
+            
+            document.getElementById('stat-points').textContent = values.length.toLocaleString();
+            document.getElementById('stat-min').textContent = Math.min(...values).toFixed(2);
+            document.getElementById('stat-avg').textContent = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
+            document.getElementById('stat-max').textContent = Math.max(...values).toFixed(2);
+        }
+        
+        // Event listeners
+        document.getElementById('timestep').addEventListener('change', (e) => {
+            currentTimestep = parseInt(e.target.value);
+            renderData(currentTimestep);
+        });
+        
+        document.getElementById('refresh-btn').addEventListener('click', () => {
+            renderData(currentTimestep);
+        });
+        
+        document.getElementById('show-labels').addEventListener('change', () => {
+            renderData(currentTimestep);
+        });
+        
+        // Initialize
+        window.addEventListener('load', () => {
+            initMap();
+            loadData();
+        });
+    </script>
+    
+    <style>
+        /* Custom marker label styling */
+        .marker-label {
+            background: none;
+            border: none;
+            box-shadow: none;
+            font-weight: bold;
+            font-size: 10px;
+            color: #333;
+            text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
+        }
+    </style>
+</body>
+</html>
