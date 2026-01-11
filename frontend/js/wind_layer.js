@@ -147,7 +147,7 @@ class WindLayer {
      * @returns {string} Color hex code
      */
     getSpeedColor(speed) {
-        if (speed < 2) return '#4DAF4A';      // Light air (green)
+        if (speed < 2) return '#00CED1';      // Light air (cyan)
         if (speed < 6) return '#377EB8';      // Moderate breeze (blue)
         if (speed < 11) return '#FF7F00';     // Fresh breeze (orange)
         if (speed < 17) return '#E41A1C';     // Strong wind (red)

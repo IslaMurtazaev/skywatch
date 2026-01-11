@@ -8,9 +8,7 @@ from datetime import datetime
 from typing import Optional, List
 
 from fetchers.cams_fetcher import CAMSFetcher
-from fetchers.ecmwf_fetcher import ECMWFFetcher
 from parsers.netcdf_parser import NetCDFParser
-from parsers.unified_parser import UnifiedParser
 
 # Configure logging
 logging.basicConfig(
@@ -69,8 +67,8 @@ Examples:
         '--region',
         type=str,
         choices=['europe', 'north_america', 'asia', 'global'],
-        default='europe',
-        help='Predefined region (default: europe)'
+        default='global',
+        help='Predefined region (default: global)'
     )
 
     parser.add_argument(
@@ -135,14 +133,12 @@ Examples:
 
     # File paths
     cams_nc_path = 'data/cams_forecast.nc'
-    ecmwf_json_path = 'data/ecmwf_precipitation.json'
-    cams_parsed_path = 'output/cams_parsed.json'
 
     try:
-        # Step 1: Fetch CAMS data (PM2.5 + wind)
+        # Step 1: Fetch CAMS data (PM2.5 + wind + precipitation)
         if not args.skip_fetch:
             logger.info("="*60)
-            logger.info("STEP 1: Fetching CAMS data (PM2.5 + wind)")
+            logger.info("STEP 1: Fetching CAMS data (PM2.5 + wind + precipitation)")
             logger.info("="*60)
 
             cams_fetcher = CAMSFetcher()
@@ -155,67 +151,31 @@ Examples:
         else:
             logger.info(f"Skipping CAMS fetch, using: {cams_nc_path}")
 
-        # Step 2: Fetch ECMWF precipitation data
-        if not args.skip_fetch:
-            logger.info("\n" + "="*60)
-            logger.info("STEP 2: Fetching ECMWF precipitation data")
-            logger.info("="*60)
-
-            ecmwf_fetcher = ECMWFFetcher()
-            ecmwf_json_path = ecmwf_fetcher.fetch(
-                bbox=bbox,
-                forecast_days=args.forecast_days,
-                output_path=ecmwf_json_path
-            )
-            logger.info(f"✓ ECMWF data downloaded: {ecmwf_json_path}")
-        else:
-            logger.info(f"Skipping ECMWF fetch, using: {ecmwf_json_path}")
-
-        # Step 3: Parse CAMS NetCDF
+        # Step 2: Parse CAMS NetCDF
         logger.info("\n" + "="*60)
-        logger.info("STEP 3: Parsing CAMS NetCDF data")
+        logger.info("STEP 2: Parsing CAMS NetCDF data")
         logger.info("="*60)
 
         nc_parser = NetCDFParser(cams_nc_path)
         cams_data = nc_parser.parse(sample_rate=args.sample_rate)
         nc_parser.close()
 
-        # Save intermediate CAMS parsed data
+        # Save as final output
         import json
         import os
-        os.makedirs(os.path.dirname(cams_parsed_path), exist_ok=True)
-        with open(cams_parsed_path, 'w') as f:
+        os.makedirs(os.path.dirname(args.output), exist_ok=True)
+        with open(args.output, 'w') as f:
             json.dump(cams_data, f, indent=2)
-        logger.info(f"✓ CAMS data parsed: {cams_parsed_path}")
 
-        # Step 4: Load ECMWF data
-        logger.info("\n" + "="*60)
-        logger.info("STEP 4: Loading ECMWF precipitation data")
-        logger.info("="*60)
-
-        with open(ecmwf_json_path, 'r') as f:
-            ecmwf_data = json.load(f)
-        logger.info(f"✓ ECMWF data loaded: {ecmwf_json_path}")
-
-        # Step 5: Combine into unified format
-        logger.info("\n" + "="*60)
-        logger.info("STEP 5: Creating unified forecast data")
-        logger.info("="*60)
-
-        unified_parser = UnifiedParser()
-        unified_data = unified_parser.parse(
-            cams_data=cams_data,
-            ecmwf_data=ecmwf_data,
-            output_path=args.output
-        )
+        file_size_mb = os.path.getsize(args.output) / (1024 * 1024)
+        logger.info(f"✓ Data parsed and saved: {args.output} ({file_size_mb:.2f} MB)")
 
         # Final summary
         logger.info("\n" + "="*60)
         logger.info("✓ SUCCESS - Forecast data ready!")
         logger.info("="*60)
         logger.info(f"Output file: {args.output}")
-        logger.info(f"Timesteps: {unified_data['metadata']['num_timesteps']}")
-        logger.info(f"Forecast hours: {unified_data['metadata']['forecast_hours'][0]}-{unified_data['metadata']['forecast_hours'][-1]}")
+        logger.info(f"Timesteps: {cams_data['metadata']['num_timesteps']}")
         logger.info("\nNext steps:")
         logger.info("  1. Open frontend/index.html in your browser")
         logger.info("  2. Or start a local server: python -m http.server 8000")

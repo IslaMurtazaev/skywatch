@@ -249,6 +249,8 @@ class NetCDFParser:
             timestep_data = {
                 'index': t_idx,
                 'timestamp': str(np.datetime64(time_val)),
+                'valid_time': str(np.datetime64(time_val)),  # For frontend compatibility
+                'forecast_hour': t_idx * 6,  # 6-hourly timesteps
                 'pm25': {
                     'unit': 'μg/m³',
                     'data_points': len(pm25_list),
