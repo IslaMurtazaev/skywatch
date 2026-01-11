@@ -21,12 +21,8 @@ class WindLayer {
             return;
         }
 
-        // Sample data if too many points (for performance)
-        let sampledData = data;
-        if (data.length > this.maxArrows) {
-            const step = Math.ceil(data.length / this.maxArrows);
-            sampledData = data.filter((_, index) => index % step === 0);
-        }
+        // Sample data using 2D grid approach for even spacing
+        let sampledData = this.sampleGrid2D(data);
 
         // Create arrow markers
         sampledData.forEach(point => {
@@ -36,6 +32,52 @@ class WindLayer {
                 this.arrows.push(arrow);
             }
         });
+    }
+
+    /**
+     * Sample data in a 2D grid pattern for even spacing
+     * @param {Array} data - Array of {lat, lon, speed, direction} objects
+     * @returns {Array} Sampled data with even 2D spacing
+     */
+    sampleGrid2D(data) {
+        if (data.length <= this.maxArrows) {
+            return data;
+        }
+
+        // Find unique latitudes and longitudes
+        const uniqueLats = [...new Set(data.map(p => p.lat))].sort((a, b) => b - a);
+        const uniqueLons = [...new Set(data.map(p => p.lon))].sort((a, b) => a - b);
+
+        const numLats = uniqueLats.length;
+        const numLons = uniqueLons.length;
+
+        // Calculate sampling step for roughly square grid
+        const targetSide = Math.sqrt(this.maxArrows);
+        const latStep = Math.ceil(numLats / targetSide);
+        const lonStep = Math.ceil(numLons / targetSide);
+
+        // Create a map for fast lookup: "lat,lon" -> data point
+        const dataMap = new Map();
+        data.forEach(point => {
+            const key = `${point.lat.toFixed(2)},${point.lon.toFixed(2)}`;
+            dataMap.set(key, point);
+        });
+
+        // Sample grid points
+        const sampledData = [];
+        for (let i = 0; i < numLats; i += latStep) {
+            for (let j = 0; j < numLons; j += lonStep) {
+                const lat = uniqueLats[i];
+                const lon = uniqueLons[j];
+                const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+                const point = dataMap.get(key);
+                if (point) {
+                    sampledData.push(point);
+                }
+            }
+        }
+
+        return sampledData;
     }
 
     /**
