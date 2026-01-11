@@ -52,6 +52,7 @@ class NetCDFParser:
         u_wind_var = self._detect_variable(['u10', 'u10m', '10m_u_component_of_wind'])
         v_wind_var = self._detect_variable(['v10', 'v10m', '10m_v_component_of_wind'])
         precip_var = self._detect_variable(['tp', 'total_precipitation', 'precipitation'])
+        temp_var = self._detect_variable(['2m_temperature', 't2m', 'temperature_2m', 'temp'])
 
         if not pm25_var or not u_wind_var or not v_wind_var:
             raise ValueError(f"Could not detect required variables. Available: {list(self.dataset.data_vars)}")
@@ -61,6 +62,10 @@ class NetCDFParser:
             logger.info(f"Precipitation variable detected: {precip_var}")
         else:
             logger.warning("No precipitation variable found in dataset")
+        if temp_var:
+            logger.info(f"Temperature variable detected: {temp_var}")
+        else:
+            logger.warning("No temperature variable found in dataset")
 
         # Get coordinate names (must be actual dimensions, not just coordinate variables)
         lat_coord = self._detect_dimension(['latitude', 'lat'])
@@ -77,6 +82,7 @@ class NetCDFParser:
         u_wind_data = self.dataset[u_wind_var]
         v_wind_data = self.dataset[v_wind_var]
         precip_data = self.dataset[precip_var] if precip_var else None
+        temp_data = self.dataset[temp_var] if temp_var else None
 
         # Handle forecast_reference_time dimension if present (select first value)
         if 'forecast_reference_time' in pm25_data.dims:
@@ -86,6 +92,8 @@ class NetCDFParser:
             v_wind_data = v_wind_data.isel(forecast_reference_time=0)
             if precip_data is not None and 'forecast_reference_time' in precip_data.dims:
                 precip_data = precip_data.isel(forecast_reference_time=0)
+            if temp_data is not None and 'forecast_reference_time' in temp_data.dims:
+                temp_data = temp_data.isel(forecast_reference_time=0)
 
         # Handle level dimension if present (select surface level = 0 or first level)
         if 'level' in pm25_data.dims:
@@ -95,6 +103,8 @@ class NetCDFParser:
             v_wind_data = v_wind_data.isel(level=0)
             if precip_data is not None and 'level' in precip_data.dims:
                 precip_data = precip_data.isel(level=0)
+            if temp_data is not None and 'level' in temp_data.dims:
+                temp_data = temp_data.isel(level=0)
 
         # Apply spatial sampling
         if sample_rate > 1:
@@ -108,6 +118,9 @@ class NetCDFParser:
             if precip_data is not None:
                 precip_data = precip_data.isel({lat_coord: slice(None, None, sample_rate),
                                                lon_coord: slice(None, None, sample_rate)})
+            if temp_data is not None:
+                temp_data = temp_data.isel({lat_coord: slice(None, None, sample_rate),
+                                           lon_coord: slice(None, None, sample_rate)})
 
         # Get dimensions
         lats = pm25_data[lat_coord].values
@@ -162,6 +175,16 @@ class NetCDFParser:
             # Meteorological convention: direction FROM which wind is blowing
             wind_direction = (270 - np.degrees(np.arctan2(v_values, u_values))) % 360
 
+            # Extract temperature data for this timestep (if available)
+            if temp_data is not None:
+                temp_slice = temp_data.isel({time_coord: t_idx})
+                temp_values = temp_slice.values  # in Kelvin
+
+                # Convert Kelvin directly to Fahrenheit
+                temp_fahrenheit = (temp_values - 273.15) * 9/5 + 32
+            else:
+                temp_fahrenheit = None
+
             # Extract precipitation data for this timestep (if available)
             # CAMS provides CUMULATIVE precipitation, so we need to calculate differences
             if precip_data is not None:
@@ -180,10 +203,11 @@ class NetCDFParser:
             else:
                 precip_values = None
 
-            # Create data arrays for PM2.5, wind, and precipitation
+            # Create data arrays for PM2.5, wind, precipitation, and temperature
             pm25_list = []
             wind_list = []
             precip_list = []
+            temp_list = []
 
             for i, lat in enumerate(lats):
                 for j, lon in enumerate(lons):
@@ -221,6 +245,16 @@ class NetCDFParser:
                                 'value': precip_val
                             })
 
+                    # Add temperature data
+                    if temp_fahrenheit is not None:
+                        temp_val = float(temp_fahrenheit[i, j])
+                        if not np.isnan(temp_val) and not np.isinf(temp_val):
+                            temp_list.append({
+                                'lat': float(lat),
+                                'lon': float(lon),
+                                'value': temp_val
+                            })
+
             # Calculate statistics
             valid_pm25 = [p['value'] for p in pm25_list]
             pm25_stats = {
@@ -248,6 +282,18 @@ class NetCDFParser:
                 }
             else:
                 precip_stats = {'min': 0, 'max': 0, 'mean': 0, 'total': 0}
+
+            # Calculate temperature statistics
+            if temp_list:
+                valid_temp = [t['value'] for t in temp_list]
+                temp_stats = {
+                    'min': float(np.min(valid_temp)),
+                    'max': float(np.max(valid_temp)),
+                    'mean': float(np.mean(valid_temp)),
+                    'median': float(np.median(valid_temp))
+                }
+            else:
+                temp_stats = {'min': 0, 'max': 0, 'mean': 0, 'median': 0}
 
             timestep_data = {
                 'index': len(timesteps),  # Sequential index in output array
@@ -277,12 +323,23 @@ class NetCDFParser:
                     'statistics': precip_stats
                 }
 
+            # Add temperature data if available
+            if temp_fahrenheit is not None:
+                timestep_data['temperature'] = {
+                    'unit': '°F',
+                    'data_points': len(temp_list),
+                    'data': temp_list,
+                    'statistics': temp_stats
+                }
+
             timesteps.append(timestep_data)
 
             logger.info(f"  PM2.5: {len(pm25_list)} points, range: {pm25_stats['min']:.2f}-{pm25_stats['max']:.2f} μg/m³")
             logger.info(f"  Wind: {len(wind_list)} points, speed range: {wind_stats['min_speed']:.2f}-{wind_stats['max_speed']:.2f} m/s")
             if precip_values is not None:
                 logger.info(f"  Precipitation (6-hourly): {len(precip_list)} points, range: {precip_stats['min']:.2f}-{precip_stats['max']:.2f} mm")
+            if temp_fahrenheit is not None:
+                logger.info(f"  Temperature: {len(temp_list)} points, range: {temp_stats['min']:.1f}-{temp_stats['max']:.1f} °F")
 
         result = {
             'metadata': {

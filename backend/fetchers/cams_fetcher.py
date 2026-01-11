@@ -70,7 +70,8 @@ class CAMSFetcher:
                 'particulate_matter_2.5um',
                 '10m_u_component_of_wind',
                 '10m_v_component_of_wind',
-                'total_precipitation'
+                'total_precipitation',
+                '2m_temperature'
             ],
             'leadtime_hour': lead_times,
             'time': '00:00',  # Forecast initialization time

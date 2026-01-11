@@ -8,6 +8,7 @@ let forecastData;
 let pm25Layer;
 let windLayer;
 let precipLayer;
+let temperatureLayer;
 let timeController;
 
 /**
@@ -28,6 +29,7 @@ async function init() {
         pm25Layer = new PM25Layer(map);
         windLayer = new WindLayer(map);
         precipLayer = new PrecipLayer(map);
+        temperatureLayer = new TemperatureLayer(map);
 
         // Initialize time controller
         timeController = new TimeController(forecastData.timesteps, onTimeChange);
@@ -141,6 +143,13 @@ function renderTimestep(index) {
         precipLayer.clear();
     }
 
+    // Render temperature layer
+    if (document.getElementById('temperature-toggle').checked) {
+        temperatureLayer.render(timestep.temperature.data);
+    } else {
+        temperatureLayer.clear();
+    }
+
     // Update statistics
     updateStatistics(timestep);
 }
@@ -155,6 +164,7 @@ function updateStatistics(timestep) {
     const pm25Stats = timestep.pm25.statistics;
     const windStats = timestep.wind.statistics;
     const precipStats = timestep.precipitation.statistics;
+    const temperatureStats = timestep.temperature.statistics;
 
     statsContent.innerHTML = `
         <p><strong>PM2.5:</strong></p>
@@ -170,6 +180,11 @@ function updateStatistics(timestep) {
         <p><strong>Precipitation:</strong></p>
         <p>Max: ${precipStats.max.toFixed(1)} mm</p>
         <p>Total: ${precipStats.total.toFixed(1)} mm</p>
+        <br>
+        <p><strong>Temperature:</strong></p>
+        <p>Min: ${temperatureStats.min.toFixed(1)} °F</p>
+        <p>Max: ${temperatureStats.max.toFixed(1)} °F</p>
+        <p>Avg: ${temperatureStats.mean.toFixed(1)} °F</p>
     `;
 }
 
@@ -180,6 +195,7 @@ function setupLayerToggles() {
     const pm25Toggle = document.getElementById('pm25-toggle');
     const windToggle = document.getElementById('wind-toggle');
     const precipToggle = document.getElementById('precip-toggle');
+    const temperatureToggle = document.getElementById('temperature-toggle');
 
     pm25Toggle.addEventListener('change', (e) => {
         pm25Layer.setVisibility(e.target.checked);
@@ -197,6 +213,13 @@ function setupLayerToggles() {
 
     precipToggle.addEventListener('change', (e) => {
         precipLayer.setVisibility(e.target.checked);
+        if (e.target.checked) {
+            renderTimestep(timeController.currentIndex);
+        }
+    });
+
+    temperatureToggle.addEventListener('change', (e) => {
+        temperatureLayer.setVisibility(e.target.checked);
         if (e.target.checked) {
             renderTimestep(timeController.currentIndex);
         }

@@ -1,12 +1,13 @@
 # SkyWatch - Global Air Quality & Weather Forecast Visualization
 
-An interactive web application that visualizes 5-day global forecasts of air quality (PM2.5), wind patterns, and precipitation on an interactive Leaflet map. All data is sourced from the Copernicus Atmosphere Monitoring Service (CAMS).
+An interactive web application that visualizes 5-day global forecasts of air quality (PM2.5), wind patterns, precipitation, and temperature on an interactive Leaflet map. All data is sourced from the Copernicus Atmosphere Monitoring Service (CAMS).
 
 ## Features
 
 - **🌫️ PM2.5 Air Quality Heatmap** - Grayscale visualization showing unhealthy air quality levels (>35.4 μg/m³)
 - **💨 Wind Arrows** - Direction and speed visualization with color-coded Beaufort scale
 - **🌧️ Precipitation Heatmap** - Green gradient showing 6-hourly rainfall/snowfall (>2mm)
+- **🌡️ Temperature Overlay** - Blue-to-red gradient showing 2-meter air temperature in Fahrenheit
 - **⏯️ Time Controls** - Interactive slider with play/pause animation through 20 timesteps
 - **🌍 Global Coverage** - Worldwide forecast data
 - **🗺️ Interactive Map** - Pan, zoom, and hover for detailed information
@@ -32,6 +33,7 @@ An interactive web application that visualizes 5-day global forecasts of air qua
 | **U-wind (u10)** | 10m U-component of wind | m/s | m/s | Global |
 | **V-wind (v10)** | 10m V-component of wind | m/s | m/s | Global |
 | **Precipitation (tp)** | Total precipitation (cumulative) | meters | mm (6-hourly) | Global |
+| **Temperature (t2m)** | 2-meter air temperature | Kelvin (K) | Fahrenheit (°F) | Global |
 
 **Spatial Resolution:** 0.4° × 0.4° grid spacing (~44 km between points at equator)
 **Temporal Resolution:** 6-hourly forecasts
@@ -45,7 +47,7 @@ An interactive web application that visualizes 5-day global forecasts of air qua
    ↓
    CAMS API Request
    - Date: Yesterday (latest available)
-   - Variables: pm2p5, u10, v10, tp
+   - Variables: pm2p5, u10, v10, tp, t2m
    - Lead times: 0h, 6h, 12h, ..., 120h (21 timesteps)
    - Format: NetCDF (.nc)
    ↓
@@ -63,6 +65,7 @@ An interactive web application that visualizes 5-day global forecasts of air qua
    - PM2.5: kg/m³ × 1e9 → μg/m³
    - Precipitation: meters (cumulative) → mm (6-hourly differences)
    - Wind: U/V components → speed (√(u²+v²)) & direction (atan2)
+   - Temperature: Kelvin → Fahrenheit ((K - 273.15) × 9/5 + 32)
    ↓
    Output: output/forecast_data.json (431 MB for global, sample rate 3)
 
@@ -72,6 +75,7 @@ An interactive web application that visualizes 5-day global forecasts of air qua
    - PM2.5 Layer: Heatmap (grayscale), filters <35.4 μg/m³
    - Wind Layer: Arrows (cyan/blue/orange/red/purple), max 500 arrows
    - Precipitation Layer: Heatmap (green), filters <2mm
+   - Temperature Layer: Image overlay (blue-to-red gradient), shows all temps
    ↓
    Interactive Web App
 ```
@@ -214,7 +218,7 @@ Then navigate to: http://localhost:8000/frontend/
 - **Time Slider:** Drag to change timestep
 - **Play Button (▶):** Animate through forecast
 - **Previous/Next (◄/►):** Step through timesteps
-- **Layer Checkboxes:** Toggle PM2.5, Wind, Precipitation
+- **Layer Checkboxes:** Toggle PM2.5, Wind, Precipitation, Temperature
 - **Space Bar:** Play/Pause
 - **Arrow Keys:** Navigate timesteps
 
@@ -224,7 +228,7 @@ Then navigate to: http://localhost:8000/frontend/
 skywatch3/
 ├── backend/
 │   ├── fetchers/
-│   │   ├── cams_fetcher.py      # CAMS API client (PM2.5 + wind + precipitation)
+│   │   ├── cams_fetcher.py      # CAMS API client (PM2.5 + wind + precipitation + temperature)
 │   │   └── ecmwf_fetcher.py     # [DEPRECATED] No longer used
 │   ├── parsers/
 │   │   ├── netcdf_parser.py     # NetCDF parser for CAMS data
@@ -239,6 +243,7 @@ skywatch3/
 │       ├── pm25_layer.js        # PM2.5 heatmap layer
 │       ├── wind_layer.js        # Wind arrow layer
 │       ├── precip_layer.js      # Precipitation heatmap layer
+│       ├── temperature_layer.js # Temperature image overlay layer
 │       └── controls.js          # Time slider controls
 ├── data/                        # Downloaded NetCDF files (gitignored)
 │   └── cams_forecast.nc         # Latest CAMS data (~75 MB)
@@ -338,6 +343,40 @@ t=18h: cumulative = 0.0212 m → 6h amount = 0.4 mm ✗ filtered (<2mm)
 - Distinct from gray PM2.5 pollution
 - Distinct from cyan/blue/orange/red wind arrows
 - Traditional association with vegetation/rain
+
+### Temperature Data
+
+**Source:** CAMS variable `2m_temperature` (2-meter air temperature)
+
+**Processing:**
+1. Extract temperature at 2 meters above ground (Kelvin)
+2. Convert to Fahrenheit: `temp_f = (temp_k - 273.15) × 9/5 + 32`
+3. No filtering: Show all temperature values (full global range)
+
+**Visualization:**
+- **Type:** Web Mercator-compensated image overlay
+- **Technique:** Pre-distorted image that accounts for map projection distortion
+- **Colors:** Blue-to-red gradient with vertical interpolation
+  - Deep blue (0.0): -40°F and below (very cold)
+  - Cyan (0.25): ~0-20°F (cold)
+  - Green (0.5): ~40-60°F (moderate)
+  - Yellow (0.75): ~80-90°F (warm)
+  - Orange (0.875): ~95-105°F (hot)
+  - Red (1.0): 122°F and above (very hot)
+
+**Technical Details:**
+- **Normalization Range:** -40°F to +122°F (covers global temperature extremes)
+- **Image Generation:** Creates ~800px tall image with Mercator-aware vertical distribution
+  - Near equator: Few pixels per latitude (compressed in Mercator)
+  - Near poles: Many pixels per latitude (stretched in Mercator)
+- **Interpolation:** Smooth vertical gradients between latitude bands to eliminate pixelation
+- **Coverage:** Full global including polar regions (no clipping)
+
+**Why Image Overlay vs Heatmap?**
+- Provides smooth, continuous coverage without gaps
+- Better performance than 45,300 individual markers
+- Compensates for Web Mercator projection distortion
+- Maintains uniform appearance in geographic space
 
 ## Configuration
 
@@ -536,6 +575,20 @@ lons = np.where(lons > 180, lons - 360, lons)
           "mean": 3.1,
           "total": 102456.8
         }
+      },
+      "temperature": {
+        "unit": "°F",
+        "data_points": 45300,
+        "data": [
+          {"lat": 89.6, "lon": -180.0, "value": -15.2},
+          ...
+        ],
+        "statistics": {
+          "min": -64.8,
+          "max": 112.2,
+          "mean": 58.5,
+          "median": 62.1
+        }
       }
     },
     ... // 19 more timesteps
@@ -580,7 +633,7 @@ Potential improvements:
 - [ ] Time-series plots at selected location
 - [ ] Comparison mode (side-by-side timesteps)
 - [ ] Custom color scales
-- [ ] Measurement unit selection (Imperial/Metric)
+- [ ] Temperature unit toggle (Celsius/Fahrenheit)
 - [ ] Automatic daily updates via cron
 
 ## Credits
