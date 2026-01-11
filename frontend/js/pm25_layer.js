@@ -22,42 +22,63 @@ class PM25Layer {
             return;
         }
 
+        // Filter out "Good" air quality (< 9.0 μg/m³) - only show pollution
+        const filteredData = data.filter(point => point.value > 9.0);
+
+        if (filteredData.length === 0) {
+            return; // No pollution to display
+        }
+
         // Prepare heatmap data: [lat, lon, intensity]
-        const heatData = data.map(point => {
+        const heatData = filteredData.map(point => {
             const intensity = this.normalizeValue(point.value);
             return [point.lat, point.lon, intensity];
         });
 
-        // Create heatmap with EPA AQI color gradient
+        // Create heatmap with grayscale gradient (darker = worse pollution)
         this.heatLayer = L.heatLayer(heatData, {
             radius: 25,
             blur: 20,
             maxZoom: 10,
             max: 1.0,
             gradient: {
-                0.0: '#00E400',  // Good (0-12)
-                0.2: '#FFFF00',  // Moderate (12-35)
-                0.4: '#FF7E00',  // Unhealthy for Sensitive (35-55)
-                0.6: '#FF0000',  // Unhealthy (55-150)
-                0.8: '#8F3F97',  // Very Unhealthy (150-250)
-                1.0: '#7E0023'   // Hazardous (250+)
+                0.0: 'rgba(200, 200, 200, 0.3)',   // Moderate (9.1-35.4) - Light gray
+                0.333: 'rgba(140, 140, 140, 0.5)', // Unhealthy for Sensitive (35.5-55.4) - Medium gray
+                0.5: 'rgba(100, 100, 100, 0.7)',   // Unhealthy (55.5-125.4) - Dark gray
+                0.75: 'rgba(60, 60, 60, 0.85)',    // Very Unhealthy (125.5-255.4) - Very dark gray
+                1.0: 'rgba(20, 20, 20, 0.95)'      // Hazardous (255.5+) - Nearly black
             }
         }).addTo(this.map);
     }
 
     /**
-     * Normalize PM2.5 value to 0-1 scale for heatmap
+     * Normalize PM2.5 value to 0-1 scale using correct EPA AQI breakpoints
+     * Only maps pollution levels (> 9.0 μg/m³) to grayscale gradient
      * @param {number} value - PM2.5 value in μg/m³
      * @returns {number} Normalized value (0-1)
      */
     normalizeValue(value) {
-        // EPA AQI breakpoints for PM2.5
-        if (value <= 12) return 0.0 + (value / 12) * 0.2;        // Good
-        if (value <= 35) return 0.2 + ((value - 12) / 23) * 0.2; // Moderate
-        if (value <= 55) return 0.4 + ((value - 35) / 20) * 0.2; // Unhealthy (Sensitive)
-        if (value <= 150) return 0.6 + ((value - 55) / 95) * 0.2; // Unhealthy
-        if (value <= 250) return 0.8 + ((value - 150) / 100) * 0.2; // Very Unhealthy
-        return 1.0; // Hazardous
+        // EPA AQI breakpoints (grayscale mapping for pollution only)
+        // 0-9.0: Good → Hidden (filtered out)
+        // 9.1 – 35.4: Moderate → 0.0 - 0.333 (Light gray)
+        // 35.5 – 55.4: Unhealthy for Sensitive → 0.333 - 0.5 (Medium gray)
+        // 55.5 – 125.4: Unhealthy → 0.5 - 0.75 (Dark gray)
+        // 125.5 – 255.4: Very Unhealthy → 0.75 - 1.0 (Very dark gray)
+        // ≥ 255.5: Hazardous → 1.0 (Nearly black)
+
+        if (value <= 9.0) {
+            return 0.0;  // Filtered out anyway
+        } else if (value <= 35.4) {
+            return ((value - 9.0) / (35.4 - 9.0)) * 0.333;  // 0.0 - 0.333
+        } else if (value <= 55.4) {
+            return 0.333 + ((value - 35.4) / (55.4 - 35.4)) * 0.167;  // 0.333 - 0.5
+        } else if (value <= 125.4) {
+            return 0.5 + ((value - 55.4) / (125.4 - 55.4)) * 0.25;  // 0.5 - 0.75
+        } else if (value <= 255.4) {
+            return 0.75 + ((value - 125.4) / (255.4 - 125.4)) * 0.25;  // 0.75 - 1.0
+        } else {
+            return 1.0;  // Hazardous (255.5+)
+        }
     }
 
     /**
