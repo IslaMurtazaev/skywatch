@@ -100,6 +100,10 @@ class NetCDFParser:
         lats = pm25_data[lat_coord].values
         lons = pm25_data[lon_coord].values
 
+        # Convert longitude from 0-360 to -180-180 for Leaflet compatibility
+        lons = np.where(lons > 180, lons - 360, lons)
+        logger.info(f"Longitude range after conversion: {lons.min():.2f} to {lons.max():.2f}")
+
         # Get actual timestamps from valid_time coordinate if available, otherwise use time dimension values
         if 'valid_time' in self.dataset.coords:
             # Get valid_time coordinate and select same indices as data
