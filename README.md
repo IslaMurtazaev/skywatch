@@ -4,7 +4,7 @@ An interactive web application that visualizes 5-day global forecasts of air qua
 
 ## Features
 
-- **🌫️ PM2.5 Air Quality Heatmap** - Grayscale visualization showing unhealthy air quality levels (>35.4 μg/m³)
+- **🌫️ PM2.5 Air Quality Heatmap** - Grayscale visualization showing moderate and unhealthy air quality levels (>9.0 μg/m³)
 - **💨 Wind Arrows** - Direction and speed visualization with color-coded Beaufort scale
 - **🌧️ Precipitation Heatmap** - Green gradient showing 6-hourly rainfall/snowfall (>2mm)
 - **🌡️ Temperature Overlay** - Blue-to-red gradient showing 2-meter air temperature in Fahrenheit
@@ -67,12 +67,12 @@ An interactive web application that visualizes 5-day global forecasts of air qua
    - Wind: U/V components → speed (√(u²+v²)) & direction (atan2)
    - Temperature: Kelvin → Fahrenheit ((K - 273.15) × 9/5 + 32)
    ↓
-   Output: output/forecast_data.json (431 MB for global, sample rate 3)
+   Output: output/forecast_data.json
 
 3. VISUALIZATION PHASE
    ↓
    Leaflet.js Map
-   - PM2.5 Layer: Heatmap (grayscale), filters <35.4 μg/m³
+   - PM2.5 Layer: Heatmap (grayscale), filters <9.0 μg/m³
    - Wind Layer: Arrows (cyan/blue/orange/red/purple), max 500 arrows
    - Precipitation Layer: Heatmap (green), filters <2mm
    - Temperature Layer: Image overlay (blue-to-red gradient), shows all temps
@@ -151,15 +151,18 @@ python -c "import cdsapi; print('API configured successfully!')"
 #### Step 1: Fetch Forecast Data
 
 **Default: Global 5-day forecast**
+
+**IMPORTANT: For global maps, use sample rate 4 or higher for better browser performance.**
+
 ```bash
-python backend/main.py
+python backend/main.py --sample-rate 4
 ```
 
 This will:
 1. Fetch latest global CAMS forecast (yesterday's data)
 2. Download ~75 MB NetCDF file
-3. Parse and sample to 1.2° grid (sample rate 3)
-4. Generate `output/forecast_data.json` (~431 MB)
+3. Parse and sample to grid
+4. Generate `output/forecast_data.json`
 5. Takes ~1 minute (30 sec API + 30 sec parsing)
 
 **Custom regions and options:**
@@ -184,11 +187,12 @@ python backend/main.py --skip-fetch
 - `--region` - Predefined regions: `global` (default), `europe`, `north_america`, `asia`
 - `--bbox N,W,S,E` - Custom bounding box (overrides --region)
 - `--forecast-days 1-5` - Number of forecast days (default: 5)
-- `--sample-rate 1-5` - Spatial sampling (default: 3)
+- `--sample-rate 1-5` - Spatial sampling (use 4+ for global maps)
   - 1 = 0.4° native resolution (very large files)
   - 2 = 0.8° resolution
-  - 3 = 1.2° resolution (recommended for global)
-  - 4 = 1.6° resolution (faster, coarser)
+  - 3 = 1.2° resolution
+  - 4 = 1.6° resolution (recommended for global)
+  - 5 = 2.0° resolution (faster)
 - `--output PATH` - Output JSON file path (default: `output/forecast_data.json`)
 - `--skip-fetch` - Skip API fetch, use existing `data/cams_forecast.nc`
 - `--verbose` - Enable detailed logging
@@ -262,11 +266,12 @@ skywatch3/
 **Processing:**
 1. Extract from NetCDF: `pm25_kg_m3`
 2. Convert units: `pm25_μg_m3 = pm25_kg_m3 × 1e9`
-3. Filter visualization: Only show values >35.4 μg/m³ (EPA AQI "Unhealthy for Sensitive")
+3. Filter visualization: Only show values >9.0 μg/m³ (EPA AQI "Moderate" and above)
 
 **Visualization:**
 - **Type:** Heatmap (canvas-based)
 - **Colors:** Grayscale gradient
+  - Light gray (0.4 opacity): 9.1-35.4 μg/m³ (Moderate)
   - Medium gray (0.6 opacity): 35.5-55.4 μg/m³ (Unhealthy for Sensitive)
   - Dark gray (0.75 opacity): 55.5-125.4 μg/m³ (Unhealthy)
   - Very dark gray (0.9 opacity): 125.5-255.4 μg/m³ (Very Unhealthy)
@@ -276,7 +281,7 @@ skywatch3/
 | Range (μg/m³) | Category | Display |
 |---------------|----------|---------|
 | 0-9.0 | Good | Hidden |
-| 9.1-35.4 | Moderate | Hidden |
+| 9.1-35.4 | Moderate | Light gray |
 | 35.5-55.4 | Unhealthy for Sensitive | Medium gray |
 | 55.5-125.4 | Unhealthy | Dark gray |
 | 125.5-255.4 | Very Unhealthy | Very dark gray |
@@ -382,24 +387,24 @@ t=18h: cumulative = 0.0212 m → 6h amount = 0.4 mm ✗ filtered (<2mm)
 
 ### Predefined Regions
 
-| Region | Bounding Box [N, W, S, E] | Coverage | Sample 3 Size |
-|--------|---------------------------|----------|---------------|
-| **global** (default) | None | Worldwide | ~431 MB |
-| europe | [70, -10, 35, 40] | Full Europe | ~13 MB |
-| north_america | [60, -130, 25, -60] | USA + Canada | ~18 MB |
-| asia | [50, 60, 10, 150] | East Asia | ~20 MB |
+| Region | Bounding Box [N, W, S, E] | Coverage |
+|--------|---------------------------|----------|
+| **global** (default) | None | Worldwide (use sample rate 4+) |
+| europe | [70, -10, 35, 40] | Full Europe |
+| north_america | [60, -130, 25, -60] | USA + Canada |
+| asia | [50, 60, 10, 150] | East Asia |
 
-### Sample Rate vs File Size
+### Sample Rate Guide
 
-For **global** region, 5-day forecast (20 timesteps):
+For **global** region: **Use sample rate 4 or higher** for optimal browser performance.
 
-| Sample Rate | Grid Spacing | Approx. Distance* | Grid Points/Timestep | JSON File Size | Quality |
-|-------------|--------------|-------------------|---------------------|----------------|---------|
-| 1 | 0.4° | ~44 km | 405,900 | ~3.8 GB | Native (slow) |
-| 2 | 0.8° | ~89 km | 101,475 | ~955 MB | Excellent |
-| 3 | 1.2° | ~133 km | 45,300 | ~431 MB | **Recommended** |
-| 4 | 1.6° | ~178 km | 25,425 | ~242 MB | Good |
-| 5 | 2.0° | ~222 km | 16,272 | ~155 MB | Acceptable |
+| Sample Rate | Grid Spacing | Approx. Distance* | Quality |
+|-------------|--------------|-------------------|---------|
+| 1 | 0.4° | ~44 km | Native (very large files) |
+| 2 | 0.8° | ~89 km | Excellent (large files) |
+| 3 | 1.2° | ~133 km | Excellent (large files) |
+| 4 | 1.6° | ~178 km | **Recommended for global** |
+| 5 | 2.0° | ~222 km | Good |
 
 *Distance between grid points at the equator (1° ≈ 111 km)
 
@@ -417,8 +422,8 @@ For **global** region, 5-day forecast (20 timesteps):
 
 **Browser performance:**
 - Modern browser recommended (Chrome, Firefox, Edge, Safari)
-- ~1 GB RAM needed for global visualization
 - Hardware acceleration helps with heatmap rendering
+- For global maps: use sample rate 4 or higher
 
 ## Troubleshooting
 
@@ -489,11 +494,11 @@ python backend/main.py
 
 **Solution:**
 ```bash
-# Use higher sample rate or smaller region
-python backend/main.py --region europe --sample-rate 3
+# Use higher sample rate for global
+python backend/main.py --sample-rate 5
 
-# Or use regional bounding box
-python backend/main.py --bbox 40,-10,30,10 --sample-rate 2
+# Or use smaller region
+python backend/main.py --region europe
 ```
 
 ## Technical Details
@@ -610,7 +615,7 @@ lons = np.where(lons > 180, lons - 360, lons)
 2. **Forecast Range:** 5 days maximum (CAMS limitation)
 3. **Update Frequency:** Manual fetch required (no auto-updates)
 4. **Initialization Timestep:** Skipped (t=0h has no precipitation forecast)
-5. **File Size:** Global forecasts are large (~431 MB at sample rate 3)
+5. **File Size:** Global forecasts are large (use sample rate 4+ for better performance)
 6. **Browser Performance:** Large datasets may be slow on older devices
 7. **Wind Arrow Density:** Limited to 500 arrows for performance
 
