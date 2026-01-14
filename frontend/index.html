@@ -69,12 +69,11 @@
             <div class="legend-item"><span class="color-box" style="background: rgba(20, 20, 20, 1.0);"></span> ≥255.5 Hazardous</div>
         </div>
         <div class="legend-section">
-            <h4>Wind Speed (m/s)</h4>
-            <div class="legend-item"><span class="color-box" style="background: #00CED1;"></span> 0-2 Light</div>
-            <div class="legend-item"><span class="color-box" style="background: #377EB8;"></span> 2-6 Moderate</div>
-            <div class="legend-item"><span class="color-box" style="background: #FF7F00;"></span> 6-11 Fresh</div>
-            <div class="legend-item"><span class="color-box" style="background: #E41A1C;"></span> 11-17 Strong</div>
-            <div class="legend-item"><span class="color-box" style="background: #984EA3;"></span> 17+ Storm</div>
+            <h4>Wind (arrows)</h4>
+            <div class="legend-note" style="font-size: 0.9em;">Arrow size = wind speed</div>
+            <div class="legend-item" style="display: flex; align-items: center;"><svg width="20" height="20" viewBox="0 0 30 30" style="margin-right: 5px;"><g transform="translate(15, 15) rotate(45) scale(0.8)"><path d="M 0,-10 L 3,-3 L 0,-5 L -3,-3 Z" fill="none" stroke="#555" stroke-width="0.5"/></g></svg>Light (0-5 m/s)</div>
+            <div class="legend-item" style="display: flex; align-items: center;"><svg width="20" height="20" viewBox="0 0 30 30" style="margin-right: 5px;"><g transform="translate(15, 15) rotate(45) scale(1.2)"><path d="M 0,-10 L 3,-3 L 0,-5 L -3,-3 Z" fill="none" stroke="#555" stroke-width="0.5"/></g></svg>Moderate (5-10 m/s)</div>
+            <div class="legend-item" style="display: flex; align-items: center;"><svg width="20" height="20" viewBox="0 0 30 30" style="margin-right: 5px;"><g transform="translate(15, 15) rotate(45) scale(1.8)"><path d="M 0,-10 L 3,-3 L 0,-5 L -3,-3 Z" fill="none" stroke="#555" stroke-width="0.5"/></g></svg>Strong (10+ m/s)</div>
         </div>
         <div class="legend-section">
             <h4>Precipitation (mm/6hr)</h4>
@@ -86,13 +85,12 @@
         </div>
         <div class="legend-section">
             <h4>Temperature (°F)</h4>
-            <div class="legend-item"><span class="color-box" style="background: rgba(0, 0, 255, 0.8);"></span> &lt;0°F Very Cold</div>
-            <div class="legend-item"><span class="color-box" style="background: rgba(0, 150, 255, 0.8);"></span> 0 to 32°F Cold</div>
-            <div class="legend-item"><span class="color-box" style="background: rgba(0, 255, 150, 0.75);"></span> 32 to 50°F Cool</div>
-            <div class="legend-item"><span class="color-box" style="background: rgba(255, 255, 0, 0.75);"></span> 50 to 70°F Moderate</div>
-            <div class="legend-item"><span class="color-box" style="background: rgba(255, 180, 0, 0.8);"></span> 70 to 85°F Warm</div>
-            <div class="legend-item"><span class="color-box" style="background: rgba(255, 100, 0, 0.85);"></span> 85 to 100°F Hot</div>
-            <div class="legend-item"><span class="color-box" style="background: rgba(255, 0, 0, 0.9);"></span> &gt;100°F Very Hot</div>
+            <div class="legend-item"><span class="color-box" style="background: rgb(255,255,255); border: 1px solid #ccc;"></span> &lt;0°F Cold</div>
+            <div class="legend-item"><span class="color-box" style="background: rgb(255,235,220);"></span> 0 to 40°F Cool</div>
+            <div class="legend-item"><span class="color-box" style="background: rgb(255,205,180);"></span> 40 to 60°F Mild</div>
+            <div class="legend-item"><span class="color-box" style="background: rgb(255,170,130);"></span> 60 to 80°F Warm</div>
+            <div class="legend-item"><span class="color-box" style="background: rgb(250,128,114);"></span> 80 to 100°F Hot</div>
+            <div class="legend-item"><span class="color-box" style="background: rgb(230,90,80);"></span> &gt;100°F Very Hot</div>
         </div>
         <div class="legend-section">
             <h4>Pollution Sources</h4>

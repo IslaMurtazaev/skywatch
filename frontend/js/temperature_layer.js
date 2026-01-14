@@ -224,14 +224,14 @@ class TemperatureLayer {
         // Normalize temperature to 0-1
         const normalized = this.normalizeValue(temp);
 
-        // Define color stops (blue -> cyan -> green -> yellow -> orange -> red)
+        // Peach gradient: white (cold) → coral (hot) - distinct from other layers
         const colorStops = [
-            { pos: 0.0, color: { r: 0, g: 0, b: 255 } },        // Blue
-            { pos: 0.25, color: { r: 0, g: 255, b: 255 } },     // Cyan
-            { pos: 0.5, color: { r: 0, g: 255, b: 0 } },        // Green
-            { pos: 0.75, color: { r: 255, g: 255, b: 0 } },     // Yellow
-            { pos: 0.875, color: { r: 255, g: 165, b: 0 } },    // Orange
-            { pos: 1.0, color: { r: 255, g: 0, b: 0 } }         // Red
+            { pos: 0.0, color: { r: 255, g: 255, b: 255 } },    // White (very cold)
+            { pos: 0.3, color: { r: 255, g: 235, b: 220 } },    // Very light peach
+            { pos: 0.5, color: { r: 255, g: 205, b: 180 } },    // Light peach
+            { pos: 0.7, color: { r: 255, g: 170, b: 130 } },    // Medium peach
+            { pos: 0.85, color: { r: 250, g: 128, b: 114 } },   // Salmon
+            { pos: 1.0, color: { r: 230, g: 90, b: 80 } }       // Deep coral
         ];
 
         // Find the two color stops to interpolate between

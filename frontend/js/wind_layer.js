@@ -133,8 +133,8 @@ class WindLayer {
                  style="transform: rotate(${direction}deg);">
                 <g transform="translate(15, 15) scale(${scale})">
                     <path d="M 0,-10 L 3,-3 L 0,-5 L -3,-3 Z"
-                          fill="${color}"
-                          stroke="#333"
+                          fill="none"
+                          stroke="${color}"
                           stroke-width="0.5"/>
                 </g>
             </svg>
@@ -142,16 +142,12 @@ class WindLayer {
     }
 
     /**
-     * Get color based on wind speed (Beaufort scale)
+     * Get arrow color (single color - speed indicated by size)
      * @param {number} speed - Wind speed in m/s
      * @returns {string} Color hex code
      */
     getSpeedColor(speed) {
-        if (speed < 2) return '#00CED1';      // Light air (cyan)
-        if (speed < 6) return '#377EB8';      // Moderate breeze (blue)
-        if (speed < 11) return '#FF7F00';     // Fresh breeze (orange)
-        if (speed < 17) return '#E41A1C';     // Strong wind (red)
-        return '#984EA3';                      // Storm (purple)
+        return '#555555';  // Dark gray - size indicates speed
     }
 
     /**
