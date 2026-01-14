@@ -1,9 +1,21 @@
+# Python
 venv/
 __pycache__/
-.DS_Store
+*.pyc
+
+# Data files (large, generated)
 data/
 output/
 *.nc
 *.grib
+
+# Logs
 *.log
+
+# macOS
+.DS_Store
+
+# IDE
 .claude/
+.vscode/
+.idea/

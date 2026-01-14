@@ -9,6 +9,7 @@ let pm25Layer;
 let windLayer;
 let precipLayer;
 let temperatureLayer;
+let pollutionSourcesLayer;
 let timeController;
 
 /**
@@ -30,6 +31,7 @@ async function init() {
         windLayer = new WindLayer(map);
         precipLayer = new PrecipLayer(map);
         temperatureLayer = new TemperatureLayer(map);
+        pollutionSourcesLayer = new PollutionSourcesLayer(map);
 
         // Initialize time controller
         timeController = new TimeController(forecastData.timesteps, onTimeChange);
@@ -39,6 +41,9 @@ async function init() {
 
         // Render initial timestep
         renderTimestep(0);
+
+        // Render pollution sources (fires and power plants)
+        renderPollutionSources();
 
         // Hide loading overlay
         showLoading(false);
@@ -189,6 +194,22 @@ function updateStatistics(timestep) {
 }
 
 /**
+ * Render pollution sources layer (fires and power plants)
+ */
+function renderPollutionSources() {
+    if (!forecastData.pollution_sources) {
+        console.warn('No pollution sources data available');
+        return;
+    }
+
+    if (document.getElementById('pollution-sources-toggle').checked) {
+        pollutionSourcesLayer.render(forecastData.pollution_sources.sources);
+        const meta = forecastData.pollution_sources.metadata;
+        console.log(`Loaded ${meta.fire_count} fires and ${meta.power_plant_count} power plants`);
+    }
+}
+
+/**
  * Setup layer toggle controls
  */
 function setupLayerToggles() {
@@ -222,6 +243,14 @@ function setupLayerToggles() {
         temperatureLayer.setVisibility(e.target.checked);
         if (e.target.checked) {
             renderTimestep(timeController.currentIndex);
+        }
+    });
+
+    const pollutionSourcesToggle = document.getElementById('pollution-sources-toggle');
+    pollutionSourcesToggle.addEventListener('change', (e) => {
+        pollutionSourcesLayer.setVisibility(e.target.checked);
+        if (e.target.checked) {
+            renderPollutionSources();
         }
     });
 }
