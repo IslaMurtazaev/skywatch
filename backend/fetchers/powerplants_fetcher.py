@@ -14,10 +14,11 @@ class PowerPlantsFetcher:
     # Using GitHub raw URL since the S3 URL is no longer available
     CSV_URL = "https://raw.githubusercontent.com/wri/global-power-plant-database/master/output_database/global_power_plant_database.csv"
 
-    # Renewable energy sources to exclude (don't contribute to pollution)
-    RENEWABLE_FUELS = {
+    # Fuel types to exclude (don't produce PM2.5)
+    EXCLUDED_FUELS = {
         'Solar', 'Wind', 'Hydro', 'Geothermal', 'Biomass',
-        'Wave and Tidal', 'Storage'
+        'Wave and Tidal', 'Storage',
+        'Nuclear'  # No combustion, no PM2.5 emissions
     }
 
     def fetch_power_plants(self, min_capacity_mw=100):
@@ -66,9 +67,9 @@ class PowerPlantsFetcher:
         df = df[df['capacity_mw'] > min_capacity_mw]
         print(f"After capacity filter (>{min_capacity_mw} MW): {len(df)} plants")
 
-        # Exclude renewables
-        df = df[~df['primary_fuel'].isin(self.RENEWABLE_FUELS)]
-        print(f"After excluding renewables: {len(df)} plants")
+        # Exclude non-PM2.5 emitters
+        df = df[~df['primary_fuel'].isin(self.EXCLUDED_FUELS)]
+        print(f"After excluding non-emitters: {len(df)} plants")
 
         # Extract relevant fields
         plants = []

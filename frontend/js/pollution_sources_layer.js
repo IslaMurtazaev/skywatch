@@ -128,14 +128,13 @@ class PollutionSourcesLayer {
     }
 
     /**
-     * Get color for power plant based on fuel type
+     * Get color for power plant based on fuel type (fossil fuels only)
      */
     getPowerPlantColor(fuelType) {
         const fuelColors = {
             'Coal': '#1a1a1a',
             'Gas': '#4169E1',
             'Oil': '#8B4513',
-            'Nuclear': '#9370DB',
             'Petcoke': '#2F4F4F',
             'Waste': '#A0522D',
             'Other': '#696969'
