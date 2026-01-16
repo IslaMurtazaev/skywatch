@@ -291,6 +291,21 @@ body {
     border: none;
 }
 
+/* Marker Cluster - consistent neutral color */
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+    background-color: rgba(140, 140, 140, 0.3) !important;
+}
+
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+    background-color: rgba(100, 100, 100, 0.5) !important;
+    color: white !important;
+    font-weight: bold;
+}
+
 /* Sub-control for nested options - toggle style */
 .sub-control {
     margin-left: 4px;
