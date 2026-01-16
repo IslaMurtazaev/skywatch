@@ -109,12 +109,11 @@ class PollutionSourcesLayer {
 
     /**
      * Get color for fire based on confidence
+     * Nominal (~70) = Orange, High (~95) = Red
      */
     getFireColor(confidence) {
-        const normalized = (confidence - 50) / 50;
-        if (normalized < 0.33) return '#FFFF00';  // Yellow
-        if (normalized < 0.66) return '#FF8C00';  // Orange
-        return '#FF0000';  // Red
+        if (confidence >= 90) return '#FF0000';  // Red - High confidence
+        return '#FF8C00';  // Orange - Nominal confidence
     }
 
     /**

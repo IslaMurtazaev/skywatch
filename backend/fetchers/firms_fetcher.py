@@ -60,6 +60,12 @@ class FIRMSFetcher:
         # Parse CSV response
         lines = response.text.strip().split('\n')
 
+        print(f"DEBUG: API returned {len(lines)} lines")
+        if len(lines) > 0:
+            print(f"DEBUG: Headers: {lines[0]}")
+        if len(lines) > 1:
+            print(f"DEBUG: First data row: {lines[1]}")
+
         if len(lines) < 2:
             print("No fire data available from FIRMS")
             return []
@@ -68,6 +74,7 @@ class FIRMSFetcher:
 
         fires = []
         filtered_count = 0
+        parse_errors = 0
 
         for line in lines[1:]:
             values = line.split(',')
@@ -78,14 +85,27 @@ class FIRMSFetcher:
             data = dict(zip(headers, values))
 
             # Filter by confidence
-            try:
-                confidence = float(data.get('confidence', 0))
-            except (ValueError, TypeError):
-                continue
-
-            if confidence <= 50:
+            # VIIRS uses categorical: 'l'=low, 'n'=nominal, 'h'=high
+            conf_raw = data.get('confidence', '')
+            if conf_raw in ('l', 'low'):
                 filtered_count += 1
-                continue
+                continue  # Skip low confidence
+            elif conf_raw in ('n', 'nominal'):
+                confidence = 70
+            elif conf_raw in ('h', 'high'):
+                confidence = 95
+            else:
+                # Try numeric (for other data sources)
+                try:
+                    confidence = float(conf_raw)
+                    if confidence <= 50:
+                        filtered_count += 1
+                        continue
+                except (ValueError, TypeError):
+                    parse_errors += 1
+                    if parse_errors <= 3:
+                        print(f"DEBUG: Failed to parse confidence value: '{conf_raw}'")
+                    continue
 
             # Parse fire data
             try:
@@ -101,5 +121,5 @@ class FIRMSFetcher:
                 print(f"Warning: Skipping fire data point due to parsing error: {e}")
                 continue
 
-        print(f"Retrieved {len(fires)} high-confidence fires (filtered {filtered_count} low-confidence fires)")
+        print(f"Retrieved {len(fires)} high-confidence fires (filtered {filtered_count} low-confidence, {parse_errors} parse errors)")
         return fires
