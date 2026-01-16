@@ -36,6 +36,10 @@
             <label>
                 <input type="checkbox" id="pollution-sources-toggle" checked> Pollution Sources
             </label>
+            <div class="sub-control" id="pollution-sources-options">
+                <label><input type="radio" name="pollution-view-mode" value="circles" checked> Circles</label>
+                <label><input type="radio" name="pollution-view-mode" value="icons"> Icons</label>
+            </div>
         </div>
     </div>
 
@@ -93,7 +97,7 @@
             <div class="legend-item"><span class="color-box" style="background: rgba(250, 120, 60, 0.7);"></span> 85 to 105°F Hot</div>
             <div class="legend-item"><span class="color-box" style="background: rgba(230, 50, 30, 1.0);"></span> &gt;105°F Extreme Hot</div>
         </div>
-        <div class="legend-section">
+        <div class="legend-section" id="pollution-legend">
             <h4>Pollution Sources</h4>
             <div class="legend-note" style="font-size: 0.9em; margin-bottom: 6px;"><strong>Active Fires</strong></div>
             <div class="legend-item"><span class="color-box" style="background: #FF8C00;"></span> Nominal Confidence</div>
