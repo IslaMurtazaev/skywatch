@@ -5,10 +5,12 @@ Interactive web application visualizing 5-day global forecasts of air quality, w
 ## Features
 
 - **PM2.5 Air Quality** - Grayscale heatmap (EPA AQI scale, >9.0 μg/m³)
-- **Wind Arrows** - Direction and speed with Beaufort scale colors
+- **Wind Arrows** - Monochrome arrows showing direction, size indicates speed
 - **Precipitation** - Green gradient heatmap (6-hourly, >2mm)
 - **Temperature** - Blue-to-red image overlay (-40°F to 122°F)
-- **Pollution Sources** - Active fires (NASA FIRMS) and power plants (WRI)
+- **Pollution Sources** - Active fires (NASA FIRMS) and fossil fuel power plants (WRI)
+  - Toggle between color-coded circles and minimalistic icons
+  - Clustered markers for better performance
 - **Time Controls** - Animated playback through 20 forecast timesteps
 - **Layer Toggles** - Show/hide individual layers
 
@@ -94,7 +96,7 @@ python backend/main.py [options]
 
 --region        Region: global, europe, north_america, asia (default: global)
 --bbox N,W,S,E  Custom bounding box (overrides --region)
---forecast-days Number of days 1-7 (default: 7)
+--forecast-days Number of days 1-5 (default: 5)
 --sample-rate   Spatial sampling 1-5 (default: 2, use 4+ for global)
 --output        Output path (default: output/forecast_data.json)
 --skip-fetch    Skip API fetch, use existing data
@@ -119,8 +121,9 @@ python backend/main.py [options]
 
 ### Pollution Sources
 - **Fires**: Fetched from NASA FIRMS API, falls back to cached `data/fire_data.json`
-- **Power Plants**: Fetched from WRI GitHub, filtered to >100MW non-renewable
+- **Power Plants**: Fetched from WRI GitHub, filtered to >100MW fossil fuel only (Coal, Gas, Oil, Petcoke, Waste)
 - Combined into single `pollution_sources.json` with `type` field
+- Displayed as clustered markers with two view modes: circles (color-coded by type) or icons (monochrome)
 
 ## Keyboard Shortcuts
 
