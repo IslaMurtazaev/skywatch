@@ -198,7 +198,7 @@ class TemperatureLayer {
                         imageData.data[pixelIndex] = color.r;
                         imageData.data[pixelIndex + 1] = color.g;
                         imageData.data[pixelIndex + 2] = color.b;
-                        imageData.data[pixelIndex + 3] = 255; // Alpha
+                        imageData.data[pixelIndex + 3] = color.a; // Alpha from diverging color scheme
                     } else {
                         // Transparent for missing data
                         imageData.data[pixelIndex + 3] = 0;
@@ -216,44 +216,55 @@ class TemperatureLayer {
     }
 
     /**
-     * Get RGB color for a temperature value
+     * Get RGBA color for a temperature value using diverging color scheme
+     * Cold temperatures → blue, mild → transparent, hot → red/orange
      * @param {number} temp - Temperature in Fahrenheit
-     * @returns {Object} RGB color object {r, g, b}
+     * @returns {Object} RGBA color object {r, g, b, a}
      */
     getTemperatureColorRGB(temp) {
-        // Normalize temperature to 0-1
-        const normalized = this.normalizeValue(temp);
+        // Define comfortable/mild temperature range (transparent zone)
+        const mildLow = 55;   // 55°F (~13°C) - lower bound of comfortable
+        const mildHigh = 75;  // 75°F (~24°C) - upper bound of comfortable
 
-        // Peach gradient: white (cold) → coral (hot) - distinct from other layers
-        const colorStops = [
-            { pos: 0.0, color: { r: 255, g: 255, b: 255 } },    // White (very cold)
-            { pos: 0.3, color: { r: 255, g: 235, b: 220 } },    // Very light peach
-            { pos: 0.5, color: { r: 255, g: 205, b: 180 } },    // Light peach
-            { pos: 0.7, color: { r: 255, g: 170, b: 130 } },    // Medium peach
-            { pos: 0.85, color: { r: 250, g: 128, b: 114 } },   // Salmon
-            { pos: 1.0, color: { r: 230, g: 90, b: 80 } }       // Deep coral
-        ];
+        // Extreme temperature bounds
+        const coldExtreme = -10;  // Very cold
+        const hotExtreme = 105;   // Very hot
 
-        // Find the two color stops to interpolate between
-        let lowerStop = colorStops[0];
-        let upperStop = colorStops[colorStops.length - 1];
-
-        for (let i = 0; i < colorStops.length - 1; i++) {
-            if (normalized >= colorStops[i].pos && normalized <= colorStops[i + 1].pos) {
-                lowerStop = colorStops[i];
-                upperStop = colorStops[i + 1];
-                break;
-            }
+        // If temperature is in the mild range, return transparent
+        if (temp >= mildLow && temp <= mildHigh) {
+            return { r: 0, g: 0, b: 0, a: 0 };
         }
 
-        // Interpolate between the two colors
-        const range = upperStop.pos - lowerStop.pos;
-        const factor = range === 0 ? 0 : (normalized - lowerStop.pos) / range;
+        // Cold temperatures (below mild range) → Blue gradient
+        if (temp < mildLow) {
+            // Calculate how far into the cold range (0 = at mildLow, 1 = at coldExtreme or below)
+            const coldFactor = Math.min(1, (mildLow - temp) / (mildLow - coldExtreme));
+
+            // Blue gradient: light blue → deep blue as it gets colder
+            // Also increase alpha as it gets more extreme
+            const alpha = Math.round(80 + coldFactor * 175);  // 80-255
+
+            return {
+                r: Math.round(100 - coldFactor * 70),      // 100 → 30
+                g: Math.round(180 - coldFactor * 100),     // 180 → 80
+                b: Math.round(220 + coldFactor * 35),      // 220 → 255
+                a: alpha
+            };
+        }
+
+        // Hot temperatures (above mild range) → Red/Orange gradient
+        // Calculate how far into the hot range (0 = at mildHigh, 1 = at hotExtreme or above)
+        const hotFactor = Math.min(1, (temp - mildHigh) / (hotExtreme - mildHigh));
+
+        // Orange to red gradient: light orange → deep red as it gets hotter
+        // Also increase alpha as it gets more extreme
+        const alpha = Math.round(80 + hotFactor * 175);  // 80-255
 
         return {
-            r: Math.round(lowerStop.color.r + (upperStop.color.r - lowerStop.color.r) * factor),
-            g: Math.round(lowerStop.color.g + (upperStop.color.g - lowerStop.color.g) * factor),
-            b: Math.round(lowerStop.color.b + (upperStop.color.b - lowerStop.color.b) * factor)
+            r: Math.round(255 - hotFactor * 25),       // 255 → 230
+            g: Math.round(180 - hotFactor * 130),      // 180 → 50
+            b: Math.round(100 - hotFactor * 70),       // 100 → 30
+            a: alpha
         };
     }
 
